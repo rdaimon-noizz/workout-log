@@ -47,3 +47,34 @@ export async function deleteExerciseSession(id: string, database: WorkoutLogDB =
     }
   })
 }
+
+/** Workout 内の種目の並びを指定順に置き換える（order を 1 から振り直す）。指定が種目と一致しなければ拒否 */
+export async function reorderSessions(workoutId: string, orderedIds: readonly string[], database: WorkoutLogDB = db): Promise<void> {
+  await database.transaction('rw', database.exerciseSessions, async () => {
+    const sessions = await database.exerciseSessions.where('workoutId').equals(workoutId).toArray()
+    const ids = new Set(sessions.map((s) => s.id))
+    const valid =
+      orderedIds.length === sessions.length && new Set(orderedIds).size === orderedIds.length && orderedIds.every((id) => ids.has(id))
+    if (!valid) throw new Error('並び順の指定がこのトレーニングの種目と一致しません')
+    const now = nowIso()
+    for (const [i, id] of orderedIds.entries()) {
+      const current = sessions.find((s) => s.id === id)
+      if (current && current.order !== i + 1) await database.exerciseSessions.update(id, { order: i + 1, updatedAt: now })
+    }
+  })
+}
+
+/** 種目を 1 つ上（前）または下（後）へ動かす。端では何もしない */
+export async function moveExerciseSession(id: string, direction: 'up' | 'down', database: WorkoutLogDB = db): Promise<void> {
+  await database.transaction('rw', database.exerciseSessions, async () => {
+    const session = await database.exerciseSessions.get(id)
+    if (!session) return
+    const sorted = await database.exerciseSessions.where('workoutId').equals(session.workoutId).sortBy('order')
+    const index = sorted.findIndex((s) => s.id === id)
+    const target = direction === 'up' ? index - 1 : index + 1
+    if (index < 0 || target < 0 || target >= sorted.length) return
+    const ids = sorted.map((s) => s.id)
+    ;[ids[index], ids[target]] = [ids[target], ids[index]]
+    await reorderSessions(session.workoutId, ids, database)
+  })
+}

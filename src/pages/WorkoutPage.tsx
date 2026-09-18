@@ -3,8 +3,9 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { AppShell } from '../components/AppShell'
 import { WorkoutEditSheet } from '../components/WorkoutEditSheet'
-import { btnDanger, btnGhost, btnPrimary, btnSecondary, card, cardButton } from '../components/ui'
+import { btnDanger, btnGhost, btnPrimary, btnSecondary, card, cardButton, label } from '../components/ui'
 import { loadWorkoutDetail } from '../db/queries'
+import { moveExerciseSession } from '../db/sessions'
 import { deleteWorkout, finishWorkout } from '../db/workouts'
 import { formatDateJa, formatSetsCompact, formatTime, formatWeight, weekdayJa } from '../lib/format'
 
@@ -14,6 +15,7 @@ export default function WorkoutPage() {
   // null = 読み込み中、undefined = 存在しない
   const detail = useLiveQuery(() => loadWorkoutDetail(workoutId), [workoutId], null)
   const [editing, setEditing] = useState(false)
+  const [reordering, setReordering] = useState(false)
 
   if (detail === null) {
     return <AppShell title="読み込み中" back="/"><p /></AppShell>
@@ -61,13 +63,26 @@ export default function WorkoutPage() {
           {workout.memo && <p className="mt-1 whitespace-pre-wrap text-slate-400">{workout.memo}</p>}
         </section>
 
+        {sessions.length > 1 && (
+          <div className="flex items-center justify-between">
+            <h2 className={label}>種目</h2>
+            <button
+              type="button"
+              onClick={() => setReordering((v) => !v)}
+              aria-pressed={reordering}
+              className={`${btnGhost} min-h-10 text-sm ${reordering ? 'text-sky-400' : ''}`}
+            >
+              {reordering ? '完了' : '並べ替え'}
+            </button>
+          </div>
+        )}
         {sessions.length === 0 ? (
           <p className="py-4 text-center text-slate-400">種目を追加して記録を始めましょう</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {sessions.map(({ session, exercise, sets }) => (
-              <li key={session.id}>
-                <Link to={`/workouts/${workout.id}/sessions/${session.id}`} className={`${cardButton} flex items-center gap-3`}>
+            {sessions.map(({ session, exercise, sets }, index) => {
+              const body = (
+                <>
                   <span className="w-5 text-slate-500 tabular-nums">{session.order}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-lg font-semibold">{exercise?.name ?? '（削除された種目）'}</span>
@@ -75,10 +90,43 @@ export default function WorkoutPage() {
                       {sets.length === 0 ? 'セットなし' : formatSetsCompact(sets, { bodyweight: exercise?.usesBodyweight })}
                     </span>
                   </span>
-                  <span className="text-slate-500">›</span>
-                </Link>
-              </li>
-            ))}
+                </>
+              )
+              return (
+                <li key={session.id}>
+                  {reordering ? (
+                    <div className={`${card} flex items-center gap-3`}>
+                      {body}
+                      <span className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          aria-label={`${exercise?.name ?? '種目'}を上へ`}
+                          disabled={index === 0}
+                          onClick={() => moveExerciseSession(session.id, 'up')}
+                          className={`${btnSecondary} h-11 w-11 px-0 text-lg`}
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`${exercise?.name ?? '種目'}を下へ`}
+                          disabled={index === sessions.length - 1}
+                          onClick={() => moveExerciseSession(session.id, 'down')}
+                          className={`${btnSecondary} h-11 w-11 px-0 text-lg`}
+                        >
+                          ▼
+                        </button>
+                      </span>
+                    </div>
+                  ) : (
+                    <Link to={`/workouts/${workout.id}/sessions/${session.id}`} className={`${cardButton} flex items-center gap-3`}>
+                      {body}
+                      <span className="text-slate-500">›</span>
+                    </Link>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
 

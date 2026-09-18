@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { WorkoutLogDB } from './db'
 import { createExercise } from './exercises'
-import { addExerciseSession, deleteExerciseSession, listSessions } from './sessions'
+import { addExerciseSession, deleteExerciseSession, listSessions, moveExerciseSession, reorderSessions } from './sessions'
 import { addSet, deleteSet, listSets, updateSet } from './sets'
 import { deleteWorkout, finishWorkout, getActiveWorkout, startWorkout, updateWorkout } from './workouts'
 import { combineLocalDateTime, todayLocalDate } from '../lib/time'
@@ -106,6 +106,38 @@ describe('sessions', () => {
       [s3.id, 2],
     ])
     expect(await database.workoutSets.where('exerciseSessionId').equals(s2.id).count()).toBe(0)
+  })
+})
+
+describe('sessions の並べ替え', () => {
+  it('上へ／下へで order が入れ替わり、端では何も起きない', async () => {
+    const database = freshDb()
+    const { exercise, workout, session: s1 } = await setup(database)
+    const s2 = await addExerciseSession(workout.id, exercise.id, database)
+    const s3 = await addExerciseSession(workout.id, exercise.id, database)
+    const orderOf = async () => (await listSessions(workout.id, database)).map((s) => [s.id, s.order])
+
+    await moveExerciseSession(s3.id, 'up', database)
+    expect(await orderOf()).toEqual([[s1.id, 1], [s3.id, 2], [s2.id, 3]])
+    await moveExerciseSession(s1.id, 'down', database)
+    expect(await orderOf()).toEqual([[s3.id, 1], [s1.id, 2], [s2.id, 3]])
+    // 端
+    await moveExerciseSession(s3.id, 'up', database)
+    await moveExerciseSession(s2.id, 'down', database)
+    expect(await orderOf()).toEqual([[s3.id, 1], [s1.id, 2], [s2.id, 3]])
+    // 存在しない id は無視
+    await expect(moveExerciseSession('nope', 'up', database)).resolves.toBeUndefined()
+  })
+
+  it('reorderSessions は指定順に振り直し、種目と一致しない指定は拒否する', async () => {
+    const database = freshDb()
+    const { exercise, workout, session: s1 } = await setup(database)
+    const s2 = await addExerciseSession(workout.id, exercise.id, database)
+    await reorderSessions(workout.id, [s2.id, s1.id], database)
+    expect((await listSessions(workout.id, database)).map((s) => s.id)).toEqual([s2.id, s1.id])
+    await expect(reorderSessions(workout.id, [s1.id], database)).rejects.toThrow('一致しません')
+    await expect(reorderSessions(workout.id, [s1.id, s1.id], database)).rejects.toThrow('一致しません')
+    await expect(reorderSessions(workout.id, [s1.id, 'other'], database)).rejects.toThrow('一致しません')
   })
 })
 
