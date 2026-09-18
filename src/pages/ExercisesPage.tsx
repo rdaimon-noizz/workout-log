@@ -12,7 +12,7 @@ import {
   unarchiveExercise,
   updateExercise,
 } from '../db/exercises'
-import { EXERCISE_CATEGORY_LABELS, type Exercise } from '../db/types'
+import type { Exercise } from '../db/types'
 
 /** 種目マスタの管理: 検索・作成・編集・アーカイブ・復元 */
 export default function ExercisesPage() {
@@ -59,7 +59,7 @@ export default function ExercisesPage() {
                 className={`${card} flex w-full items-center justify-between gap-3 text-left`}
               >
                 <span className="min-w-0 flex-1 truncate text-lg font-semibold">{e.name}</span>
-                <span className="shrink-0 text-sm text-slate-400">{EXERCISE_CATEGORY_LABELS[e.category]}</span>
+                <span className="max-w-[45%] shrink-0 truncate text-sm text-slate-400">{e.muscles.join('・')}</span>
               </button>
             </li>
           ))}
@@ -93,7 +93,7 @@ export default function ExercisesPage() {
         <ExerciseFormSheet
           title="新しい種目"
           submitLabel="作成"
-          initial={{ name: '', category: 'other' }}
+          initial={{ name: '', muscles: [] }}
           onClose={() => setCreating(false)}
           onSubmit={async (input) => {
             await createExercise(input)
@@ -103,7 +103,7 @@ export default function ExercisesPage() {
       {editing && (
         <ExerciseFormSheet
           title="種目を編集"
-          initial={{ name: editing.name, category: editing.category }}
+          initial={{ name: editing.name, muscles: editing.muscles }}
           onClose={() => setEditing(null)}
           onSubmit={async (input) => {
             await updateExercise(editing.id, input)

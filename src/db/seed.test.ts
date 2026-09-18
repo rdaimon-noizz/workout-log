@@ -22,8 +22,9 @@ describe('ensureSeedExercises', () => {
     const database = freshDb()
     const inserted = await ensureSeedExercises(database)
     expect(inserted).toBe(INITIAL_EXERCISES.length)
-    const names = (await database.exercises.toArray()).map((e) => e.name).sort()
-    expect(names).toEqual([...INITIAL_EXERCISES.map((e) => e.name)].sort())
+    const rows = await database.exercises.toArray()
+    expect(rows.map((e) => e.name).sort()).toEqual([...INITIAL_EXERCISES.map((e) => e.name)].sort())
+    expect(rows.find((e) => e.name === 'Deadlift')!.muscles).toEqual(['脊柱起立筋', 'ハムストリング', '大臀筋'])
   })
 
   it('2 回目は何もしない', async () => {
@@ -41,7 +42,7 @@ describe('ensureSeedExercises', () => {
       id: newId(),
       name: 'Pull Up',
       nameKey: toNameKey('Pull Up'),
-      category: 'back',
+      muscles: ['広背筋'],
       createdAt: now,
       updatedAt: now,
       archivedAt: null,
@@ -66,7 +67,7 @@ describe('nameKey の一意性', () => {
         id: newId(),
         name: 'deadlift',
         nameKey: toNameKey('deadlift'),
-        category: 'back',
+        muscles: ['広背筋'],
         createdAt: now,
         updatedAt: now,
         archivedAt: null,

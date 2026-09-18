@@ -1,5 +1,5 @@
 import { db, type WorkoutLogDB } from './db'
-import type { Exercise, ExerciseCategory } from './types'
+import type { Exercise } from './types'
 import { newId, nowIso } from '../lib/time'
 
 /** 種目名の一意キー。大文字小文字・前後空白・連続空白の違いを同一視する */
@@ -23,7 +23,24 @@ export class DuplicateExerciseNameError extends Error {
 
 export interface ExerciseInput {
   name: string
-  category: ExerciseCategory
+  /** 部位（複数可）。保存前に normalizeMuscles で整える */
+  muscles: string[]
+}
+
+/** 部位配列の正規化: 前後空白と連続空白を整え、空と重複を除く。順序は維持 */
+export function normalizeMuscles(muscles: readonly string[]): string[] {
+  const out: string[] = []
+  for (const raw of muscles) {
+    const m = raw.trim().replace(/\s+/g, ' ')
+    if (m && !out.includes(m)) out.push(m)
+  }
+  return out
+}
+
+/** 既存種目（アーカイブ含む）で使われている部位の一覧（重複なし・昇順） */
+export async function listUsedMuscles(database: WorkoutLogDB = db): Promise<string[]> {
+  const keys = await database.exercises.orderBy('muscles').uniqueKeys()
+  return keys.map(String)
 }
 
 export function listActiveExercises(database: WorkoutLogDB = db): Promise<Exercise[]> {
@@ -58,7 +75,7 @@ export async function createExercise(input: ExerciseInput, database: WorkoutLogD
       id: newId(),
       name,
       nameKey,
-      category: input.category,
+      muscles: normalizeMuscles(input.muscles),
       createdAt: now,
       updatedAt: now,
       archivedAt: null,
@@ -85,7 +102,7 @@ export async function updateExercise(
       changes.name = name
       changes.nameKey = nameKey
     }
-    if (patch.category !== undefined) changes.category = patch.category
+    if (patch.muscles !== undefined) changes.muscles = normalizeMuscles(patch.muscles)
     await database.exercises.update(id, changes)
   })
 }

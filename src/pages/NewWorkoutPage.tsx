@@ -3,26 +3,33 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { AppShell } from '../components/AppShell'
 import { NumberField } from '../components/NumberField'
-import { btnPrimary, field, label } from '../components/ui'
+import { btnPrimary, btnSecondary, field, label } from '../components/ui'
 import { getActiveWorkout, startWorkout } from '../db/workouts'
 import { formatDateJa, parseDecimal } from '../lib/format'
-import { todayLocalDate } from '../lib/time'
+import { combineLocalDateTime, nowTime, todayLocalDate } from '../lib/time'
 
 export default function NewWorkoutPage() {
   const navigate = useNavigate()
   const active = useLiveQuery(() => getActiveWorkout(), [])
   const [date, setDate] = useState(todayLocalDate())
+  const [time, setTime] = useState(nowTime())
   const [bodyweight, setBodyweight] = useState('')
   const [memo, setMemo] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  function useNow() {
+    setDate(todayLocalDate())
+    setTime(nowTime())
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     const bw = bodyweight.trim() === '' ? null : parseDecimal(bodyweight)
     if (bodyweight.trim() !== '' && bw === null) return setError('体重は数値で入力してください')
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('日付を選んでください')
+    if (!/^\d{2}:\d{2}$/.test(time)) return setError('開始時刻を選んでください')
     try {
-      const workout = await startWorkout({ date, bodyweightKg: bw, memo })
+      const workout = await startWorkout({ date, startedAt: combineLocalDateTime(date, time), bodyweightKg: bw, memo })
       navigate(`/workouts/${workout.id}`, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -37,10 +44,19 @@ export default function NewWorkoutPage() {
             進行中のトレーニング（{formatDateJa(active.date)}）は自動的に終了します
           </p>
         )}
-        <label className="flex flex-col gap-1">
-          <span className={label}>日付</span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} />
-        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1">
+            <span className={label}>日付</span>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={label}>開始時刻</span>
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={field} />
+          </label>
+        </div>
+        <button type="button" onClick={useNow} className={`${btnSecondary} w-full`}>
+          今の時刻にする
+        </button>
         <NumberField label="体重（任意）" value={bodyweight} onChange={setBodyweight} mode="decimal" suffix="kg" />
         <label className="flex flex-col gap-1">
           <span className={label}>メモ（任意）</span>

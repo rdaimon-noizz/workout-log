@@ -42,7 +42,49 @@ export function weekdayJa(date: string): string {
   return WEEKDAYS[new Date(y, m - 1, d).getDay()]
 }
 
-/** セット一覧の 1 行要約。各セットを全角スペースで区切る（例: 220×5 220×5 220×5） */
-export function formatSetsCompact(sets: ReadonlyArray<{ weightKg: number; reps: number }>): string {
-  return sets.map((s) => `${formatWeight(s.weightKg)}×${s.reps}`).join('　')
+export interface SetLike {
+  weightKg: number
+  reps: number | null
+  durationSec: number | null
+}
+
+/**
+ * セット 1 本の表示。例: 220 kg × 5 ／ 200 kg × 3（2秒）／ 60秒 ／ 20 kg 60秒
+ * 重量 0 で reps も無いセット（プランク等）は重量を出さない。
+ */
+export function formatSet(s: SetLike): string {
+  const showWeight = s.weightKg > 0 || s.reps !== null
+  let out = showWeight ? `${formatWeight(s.weightKg)} kg` : ''
+  if (s.reps !== null) out += ` × ${s.reps}`
+  if (s.durationSec !== null) {
+    if (s.reps !== null) out += `（${s.durationSec}秒）`
+    else out += out ? ` ${s.durationSec}秒` : `${s.durationSec}秒`
+  }
+  return out
+}
+
+/** セット 1 本の短い表示。例: 220×5 ／ 200×3(2秒) ／ 60秒 ／ 20×60秒 */
+export function formatSetCompact(s: SetLike): string {
+  const showWeight = s.weightKg > 0 || s.reps !== null
+  let out = showWeight ? formatWeight(s.weightKg) : ''
+  if (s.reps !== null) out += `×${s.reps}`
+  if (s.durationSec !== null) {
+    if (s.reps !== null) out += `(${s.durationSec}秒)`
+    else out += out ? `×${s.durationSec}秒` : `${s.durationSec}秒`
+  }
+  return out
+}
+
+/** セット一覧の 1 行要約。各セットを全角スペースで区切る */
+export function formatSetsCompact(sets: ReadonlyArray<SetLike>): string {
+  return sets.map(formatSetCompact).join('　')
+}
+
+/**
+ * 任意の整数欄の解釈。空文字は null（未入力）、正の整数はその値、それ以外は undefined（不正）。
+ */
+export function parseOptionalInteger(input: string): number | null | undefined {
+  if (input.trim() === '') return null
+  const n = parseInteger(input)
+  return n === null || n < 1 ? undefined : n
 }

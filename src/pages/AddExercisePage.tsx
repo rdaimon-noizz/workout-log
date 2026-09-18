@@ -6,7 +6,6 @@ import { ExerciseFormSheet } from '../components/ExerciseFormSheet'
 import { btnSecondary, card, field } from '../components/ui'
 import { createExercise, filterExercises, listActiveExercises } from '../db/exercises'
 import { addExerciseSession } from '../db/sessions'
-import { EXERCISE_CATEGORY_LABELS } from '../db/types'
 
 export default function AddExercisePage() {
   const { workoutId = '' } = useParams()
@@ -43,7 +42,7 @@ export default function AddExercisePage() {
                 className={`${card} flex w-full items-center justify-between gap-3 text-left`}
               >
                 <span className="min-w-0 flex-1 truncate text-lg font-semibold">{e.name}</span>
-                <span className="shrink-0 text-sm text-slate-400">{EXERCISE_CATEGORY_LABELS[e.category]}</span>
+                <span className="max-w-[45%] shrink-0 truncate text-sm text-slate-400">{e.muscles.join('・')}</span>
               </button>
             </li>
           ))}
@@ -57,7 +56,7 @@ export default function AddExercisePage() {
         <ExerciseFormSheet
           title="新しい種目"
           submitLabel="作成して追加"
-          initial={{ name: trimmed, category: 'other' }}
+          initial={{ name: trimmed, muscles: [] }}
           onClose={() => setCreating(false)}
           onSubmit={async (input) => {
             const exercise = await createExercise(input)

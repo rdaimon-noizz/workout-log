@@ -3,8 +3,8 @@ import { WorkoutLogDB } from './db'
 import { createExercise } from './exercises'
 import { addExerciseSession, deleteExerciseSession, listSessions } from './sessions'
 import { addSet, deleteSet, listSets, updateSet } from './sets'
-import { deleteWorkout, finishWorkout, getActiveWorkout, startWorkout } from './workouts'
-import { todayLocalDate } from '../lib/time'
+import { deleteWorkout, finishWorkout, getActiveWorkout, startWorkout, updateWorkout } from './workouts'
+import { combineLocalDateTime, todayLocalDate } from '../lib/time'
 
 const dbs: WorkoutLogDB[] = []
 function freshDb(): WorkoutLogDB {
@@ -17,14 +17,14 @@ afterEach(async () => {
 })
 
 async function setup(database: WorkoutLogDB) {
-  const exercise = await createExercise({ name: 'Deadlift', category: 'back' }, database)
+  const exercise = await createExercise({ name: 'Deadlift', muscles: ['脊柱起立筋'] }, database)
   const workout = await startWorkout({}, database)
   const session = await addExerciseSession(workout.id, exercise.id, database)
   return { exercise, workout, session }
 }
 
 describe('startWorkout / getActiveWorkout', () => {
-  it('今日の日付で進行中の Workout を作る', async () => {
+  it('今日の日付・現在時刻で進行中の Workout を作る', async () => {
     const database = freshDb()
     const w = await startWorkout({ bodyweightKg: 72.5, memo: 'test' }, database)
     expect(w.date).toBe(todayLocalDate())
@@ -33,19 +33,25 @@ describe('startWorkout / getActiveWorkout', () => {
     expect((await getActiveWorkout(database))?.id).toBe(w.id)
   })
 
+  it('開始時刻を指定して作れる', async () => {
+    const database = freshDb()
+    const startedAt = combineLocalDateTime('2026-09-17', '07:15')
+    const w = await startWorkout({ date: '2026-09-17', startedAt }, database)
+    expect(w.startedAt).toBe(startedAt)
+  })
+
   it('進行中のものがあれば自動で閉じる（セットなし → 開始時刻で終了）', async () => {
     const database = freshDb()
     const first = await startWorkout({}, database)
     const second = await startWorkout({ date: '2026-09-19' }, database)
-    const closed = await database.workouts.get(first.id)
-    expect(closed!.endedAt).toBe(first.startedAt)
+    expect((await database.workouts.get(first.id))!.endedAt).toBe(first.startedAt)
     expect((await getActiveWorkout(database))?.id).toBe(second.id)
   })
 
   it('自動で閉じるとき、セットがあれば最後のセットの時刻で終了する', async () => {
     const database = freshDb()
     const { workout, session } = await setup(database)
-    const set = await addSet(session.id, { weightKg: 100, reps: 5 }, database)
+    const set = await addSet(session.id, { weightKg: 100, reps: 5, durationSec: null }, database)
     await startWorkout({}, database)
     expect((await database.workouts.get(workout.id))!.endedAt).toBe(set.createdAt)
   })
@@ -54,6 +60,7 @@ describe('startWorkout / getActiveWorkout', () => {
     const database = freshDb()
     await expect(startWorkout({ bodyweightKg: -1 }, database)).rejects.toThrow('体重')
     await expect(startWorkout({ date: '2026/09/18' }, database)).rejects.toThrow('日付')
+    await expect(startWorkout({ startedAt: '2026-09-18 19:30' }, database)).rejects.toThrow('開始時刻')
   })
 
   it('finishWorkout で終了し、進行中が無くなる', async () => {
@@ -65,6 +72,24 @@ describe('startWorkout / getActiveWorkout', () => {
   })
 })
 
+describe('updateWorkout', () => {
+  it('開始・終了時刻を変更でき、終了が開始より前なら拒否する', async () => {
+    const database = freshDb()
+    const w = await startWorkout({ date: '2026-09-18', startedAt: combineLocalDateTime('2026-09-18', '19:00') }, database)
+    await finishWorkout(w.id, database)
+    const startedAt = combineLocalDateTime('2026-09-18', '18:30')
+    const endedAt = combineLocalDateTime('2026-09-18', '20:10')
+    await updateWorkout(w.id, { startedAt, endedAt }, database)
+    expect(await database.workouts.get(w.id)).toMatchObject({ startedAt, endedAt })
+    await expect(
+      updateWorkout(w.id, { endedAt: combineLocalDateTime('2026-09-18', '18:00') }, database),
+    ).rejects.toThrow('終了時刻が開始時刻より前')
+    await expect(
+      updateWorkout(w.id, { startedAt: combineLocalDateTime('2026-09-18', '21:00') }, database),
+    ).rejects.toThrow('終了時刻が開始時刻より前')
+  })
+})
+
 describe('sessions', () => {
   it('order は 1 から増え、削除すると振り直される（配下のセットも消える）', async () => {
     const database = freshDb()
@@ -72,7 +97,7 @@ describe('sessions', () => {
     const s2 = await addExerciseSession(workout.id, exercise.id, database)
     const s3 = await addExerciseSession(workout.id, exercise.id, database)
     expect([s1.order, s2.order, s3.order]).toEqual([1, 2, 3])
-    await addSet(s2.id, { weightKg: 100, reps: 5 }, database)
+    await addSet(s2.id, { weightKg: 100, reps: 5, durationSec: null }, database)
 
     await deleteExerciseSession(s2.id, database)
     const rest = await listSessions(workout.id, database)
@@ -88,9 +113,9 @@ describe('sets', () => {
   it('setNumber は 1 から増え、削除すると振り直される', async () => {
     const database = freshDb()
     const { session } = await setup(database)
-    const a = await addSet(session.id, { weightKg: 220, reps: 5 }, database)
-    const b = await addSet(session.id, { weightKg: 220, reps: 5 }, database)
-    const c = await addSet(session.id, { weightKg: 225, reps: 3 }, database)
+    const a = await addSet(session.id, { weightKg: 220, reps: 5, durationSec: null }, database)
+    const b = await addSet(session.id, { weightKg: 220, reps: 5, durationSec: null }, database)
+    const c = await addSet(session.id, { weightKg: 225, reps: 3, durationSec: null }, database)
     expect([a.setNumber, b.setNumber, c.setNumber]).toEqual([1, 2, 3])
 
     await deleteSet(b.id, database)
@@ -101,21 +126,41 @@ describe('sets', () => {
     ])
   })
 
-  it('updateSet で値を変え、不正な値は拒否する', async () => {
+  it('秒だけのセット（プランク）と、reps＋秒のセット（ポーズ種目）を記録できる', async () => {
     const database = freshDb()
     const { session } = await setup(database)
-    const a = await addSet(session.id, { weightKg: 220, reps: 5 }, database)
-    await updateSet(a.id, { weightKg: 222.5, memo: 'belt' }, database)
-    expect(await database.workoutSets.get(a.id)).toMatchObject({ weightKg: 222.5, reps: 5, memo: 'belt' })
-    await expect(updateSet(a.id, { reps: 0 }, database)).rejects.toThrow('Reps')
-    await expect(addSet(session.id, { weightKg: -1, reps: 5 }, database)).rejects.toThrow('重量')
-    await expect(addSet(session.id, { weightKg: 100, reps: 2.5 }, database)).rejects.toThrow('Reps')
+    await expect(addSet(session.id, { weightKg: 0, reps: null, durationSec: 60 }, database)).resolves.toMatchObject({
+      weightKg: 0,
+      reps: null,
+      durationSec: 60,
+    })
+    await expect(addSet(session.id, { weightKg: 200, reps: 3, durationSec: 2 }, database)).resolves.toMatchObject({
+      reps: 3,
+      durationSec: 2,
+    })
   })
 
-  it('自重種目の 0 kg を許容する', async () => {
+  it('reps と秒の両方が無いセットは拒否する', async () => {
     const database = freshDb()
     const { session } = await setup(database)
-    await expect(addSet(session.id, { weightKg: 0, reps: 12 }, database)).resolves.toMatchObject({ weightKg: 0 })
+    await expect(addSet(session.id, { weightKg: 100, reps: null, durationSec: null }, database)).rejects.toThrow(
+      'Reps か秒',
+    )
+  })
+
+  it('updateSet で値を変え、null で項目を消せ、不正な値は拒否する', async () => {
+    const database = freshDb()
+    const { session } = await setup(database)
+    const a = await addSet(session.id, { weightKg: 220, reps: 5, durationSec: null }, database)
+    await updateSet(a.id, { weightKg: 222.5, memo: 'belt' }, database)
+    expect(await database.workoutSets.get(a.id)).toMatchObject({ weightKg: 222.5, reps: 5, memo: 'belt' })
+    await updateSet(a.id, { reps: null, durationSec: 30 }, database)
+    expect(await database.workoutSets.get(a.id)).toMatchObject({ reps: null, durationSec: 30 })
+    await expect(updateSet(a.id, { durationSec: null }, database)).rejects.toThrow('Reps か秒')
+    await expect(updateSet(a.id, { reps: 0 }, database)).rejects.toThrow('Reps')
+    await expect(addSet(session.id, { weightKg: -1, reps: 5, durationSec: null }, database)).rejects.toThrow('重量')
+    await expect(addSet(session.id, { weightKg: 100, reps: 2.5, durationSec: null }, database)).rejects.toThrow('Reps')
+    await expect(addSet(session.id, { weightKg: 100, reps: 5, durationSec: 0 }, database)).rejects.toThrow('秒')
   })
 })
 
@@ -123,8 +168,8 @@ describe('deleteWorkout', () => {
   it('配下の種目とセットをすべて削除する', async () => {
     const database = freshDb()
     const { workout, session } = await setup(database)
-    await addSet(session.id, { weightKg: 100, reps: 5 }, database)
-    await addSet(session.id, { weightKg: 100, reps: 5 }, database)
+    await addSet(session.id, { weightKg: 100, reps: 5, durationSec: null }, database)
+    await addSet(session.id, { weightKg: 100, reps: 5, durationSec: null }, database)
     await deleteWorkout(workout.id, database)
     expect(await database.workouts.count()).toBe(0)
     expect(await database.exerciseSessions.count()).toBe(0)

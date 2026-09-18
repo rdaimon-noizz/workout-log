@@ -1,21 +1,31 @@
-/** 種目カテゴリ（保存値は英語コード。表示ラベルは EXERCISE_CATEGORY_LABELS） */
-export const EXERCISE_CATEGORIES = ['chest', 'back', 'shoulder', 'legs', 'arms', 'core', 'other'] as const
-export type ExerciseCategory = (typeof EXERCISE_CATEGORIES)[number]
-
-export const EXERCISE_CATEGORY_LABELS: Record<ExerciseCategory, string> = {
-  chest: '胸',
-  back: '背中',
-  shoulder: '肩',
-  legs: '脚',
-  arms: '腕',
-  core: '体幹',
-  other: 'その他',
-}
-
 /** ISO 8601 オフセット付き時刻文字列（例 2026-09-18T19:30:00+09:00） */
 export type IsoDateTime = string
 /** 端末ローカルの日付文字列 YYYY-MM-DD */
 export type LocalDate = string
+
+/**
+ * 部位の候補。ユーザーが自由に追加した部位は、既存種目で使われているものを集めて候補に加える。
+ * 保存値は文字列そのもの（コード表は持たない）。
+ */
+export const MUSCLE_SUGGESTIONS: readonly string[] = [
+  '大胸筋',
+  '広背筋',
+  '僧帽筋',
+  '脊柱起立筋',
+  '三角筋',
+  '上腕二頭筋',
+  '上腕三頭筋',
+  '前腕',
+  '腹直筋',
+  '腹斜筋',
+  '大腿四頭筋',
+  'ハムストリング',
+  '大臀筋',
+  '内転筋',
+  'ふくらはぎ',
+  '全身',
+  'その他',
+]
 
 /** 種目マスタ。削除は物理削除せず archivedAt を立てる */
 export interface Exercise {
@@ -23,7 +33,8 @@ export interface Exercise {
   name: string
   /** name を正規化した一意キー（小文字化・前後空白除去・連続空白の圧縮） */
   nameKey: string
-  category: ExerciseCategory
+  /** 部位（複数可・空も可）。Dexie では multiEntry インデックス */
+  muscles: string[]
   createdAt: IsoDateTime
   updatedAt: IsoDateTime
   archivedAt: IsoDateTime | null
@@ -62,7 +73,10 @@ export interface WorkoutSet {
   setNumber: number
   /** kg。小数可。自重種目は 0 */
   weightKg: number
-  reps: number
+  /** 回数。秒だけの種目（プランク等）では null */
+  reps: number | null
+  /** 秒（ホールド時間やポーズ秒。意味は種目ごとに統一する）。使わなければ null */
+  durationSec: number | null
   memo: string
   createdAt: IsoDateTime
   updatedAt: IsoDateTime

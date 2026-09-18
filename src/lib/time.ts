@@ -31,3 +31,21 @@ export function todayLocalDate(): string {
 export function newId(): string {
   return crypto.randomUUID()
 }
+
+/** 現在時刻 HH:mm（端末ローカル） */
+export function nowTime(): string {
+  const d = new Date()
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/** ローカル日付 YYYY-MM-DD と時刻 HH:mm からオフセット付き ISO を作る（秒は 0） */
+export function combineLocalDateTime(date: string, time: string): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const [hh, mm] = time.split(':').map(Number)
+  return toLocalIso(new Date(y, m - 1, d, hh, mm, 0))
+}
+
+/** ローカル ISO 文字列の日付部分 YYYY-MM-DD */
+export function dateOfIso(iso: string): string {
+  return iso.slice(0, 10)
+}

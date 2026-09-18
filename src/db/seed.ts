@@ -1,19 +1,10 @@
 import { db, type WorkoutLogDB } from './db'
-import type { Exercise, ExerciseCategory } from './types'
-import { newId, nowIso } from '../lib/time'
 import { toNameKey } from './exercises'
+import { INITIAL_EXERCISES } from './initialExercises'
+import type { Exercise } from './types'
+import { newId, nowIso } from '../lib/time'
 
-/** 初回起動時に投入する種目 */
-export const INITIAL_EXERCISES: ReadonlyArray<{ name: string; category: ExerciseCategory }> = [
-  { name: 'Deadlift', category: 'back' },
-  { name: 'Bench Press', category: 'chest' },
-  { name: 'Squat', category: 'legs' },
-  { name: 'Romanian Deadlift', category: 'legs' },
-  { name: 'Lat Pulldown', category: 'back' },
-  { name: 'Barbell Row', category: 'back' },
-  { name: 'Overhead Press', category: 'shoulder' },
-]
-
+export { INITIAL_EXERCISES }
 
 /**
  * 種目テーブルが空のときだけ初期種目を投入する。
@@ -25,11 +16,11 @@ export async function ensureSeedExercises(database: WorkoutLogDB = db): Promise<
     const count = await database.exercises.count()
     if (count > 0) return 0
     const now = nowIso()
-    const rows: Exercise[] = INITIAL_EXERCISES.map(({ name, category }) => ({
+    const rows: Exercise[] = INITIAL_EXERCISES.map(({ name, muscles }) => ({
       id: newId(),
       name,
       nameKey: toNameKey(name),
-      category,
+      muscles: [...muscles],
       createdAt: now,
       updatedAt: now,
       archivedAt: null,

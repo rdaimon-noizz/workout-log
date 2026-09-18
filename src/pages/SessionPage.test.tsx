@@ -13,7 +13,7 @@ let sessionId = ''
 
 beforeEach(async () => {
   await Promise.all([db.workoutSets.clear(), db.exerciseSessions.clear(), db.workouts.clear(), db.exercises.clear()])
-  const exercise = await createExercise({ name: 'Deadlift', category: 'back' })
+  const exercise = await createExercise({ name: 'Deadlift', muscles: ['脊柱起立筋'] })
   const workout = await startWorkout({})
   const session = await addExerciseSession(workout.id, exercise.id)
   workoutId = workout.id
@@ -40,12 +40,30 @@ describe('SessionPage', () => {
     fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '5' } })
     fireEvent.click(screen.getByRole('button', { name: 'セット追加' }))
 
-    const row = await screen.findByRole('button', { name: /220\s*kg\s*×\s*5/ })
-    expect(row).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /220 kg × 5/ })).toBeInTheDocument()
     expect(await db.workoutSets.where('exerciseSessionId').equals(sessionId).count()).toBe(1)
     // 追加後も入力値は残り、次のセットを 1 タップで足せる
     expect(screen.getByLabelText('重量')).toHaveValue('220')
     expect(screen.getByLabelText('Reps')).toHaveValue('5')
+  })
+
+  it('秒だけのセット（プランク）を追加できる', async () => {
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Deadlift' })
+    fireEvent.change(screen.getByLabelText('重量'), { target: { value: '0' } })
+    fireEvent.change(screen.getByLabelText('秒'), { target: { value: '60' } })
+    fireEvent.click(screen.getByRole('button', { name: 'セット追加' }))
+    expect(await screen.findByRole('button', { name: /60秒/ })).toBeInTheDocument()
+    expect(await db.workoutSets.toArray()).toMatchObject([{ weightKg: 0, reps: null, durationSec: 60 }])
+  })
+
+  it('reps も秒も空なら追加せずエラーを出す', async () => {
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Deadlift' })
+    fireEvent.change(screen.getByLabelText('重量'), { target: { value: '100' } })
+    fireEvent.click(screen.getByRole('button', { name: 'セット追加' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Reps か秒')
+    expect(await db.workoutSets.count()).toBe(0)
   })
 
   it('数値入力欄は iOS のテンキーが出る属性を持つ', async () => {
@@ -54,14 +72,6 @@ describe('SessionPage', () => {
     expect(screen.getByLabelText('重量')).toHaveAttribute('inputmode', 'decimal')
     expect(screen.getByLabelText('Reps')).toHaveAttribute('inputmode', 'numeric')
     expect(screen.getByLabelText('Reps')).toHaveAttribute('pattern', '[0-9]*')
-  })
-
-  it('reps が空なら追加せずエラーを出す', async () => {
-    renderPage()
-    await screen.findByRole('heading', { level: 1, name: 'Deadlift' })
-    fireEvent.change(screen.getByLabelText('重量'), { target: { value: '100' } })
-    fireEvent.click(screen.getByRole('button', { name: 'セット追加' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Reps')
-    expect(await db.workoutSets.count()).toBe(0)
+    expect(screen.getByLabelText('秒')).toHaveAttribute('inputmode', 'numeric')
   })
 })

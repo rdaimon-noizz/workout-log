@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { newId, toLocalDate, toLocalIso } from './time'
+import { combineLocalDateTime, dateOfIso, newId, nowTime, toLocalDate, toLocalIso } from './time'
 
 describe('toLocalDate', () => {
   it('ローカルの 23:59:59 でも日付がずれない', () => {
@@ -31,5 +31,17 @@ describe('newId', () => {
     const b = newId()
     expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
     expect(a).not.toBe(b)
+  })
+})
+
+describe('combineLocalDateTime / dateOfIso / nowTime', () => {
+  it('日付と HH:mm からローカル ISO を組み、日付部分を取り出せる', () => {
+    const iso = combineLocalDateTime('2026-09-18', '19:30')
+    expect(iso).toMatch(/^2026-09-18T19:30:00[+-]\d{2}:\d{2}$/)
+    expect(dateOfIso(iso)).toBe('2026-09-18')
+    expect(new Date(iso).getTime()).toBe(new Date(2026, 8, 18, 19, 30, 0).getTime())
+  })
+  it('nowTime は HH:mm', () => {
+    expect(nowTime()).toMatch(/^\d{2}:\d{2}$/)
   })
 })

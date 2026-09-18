@@ -4,7 +4,7 @@ import { NumberField } from './NumberField'
 import { btnDanger, btnPrimary, field, label } from './ui'
 import { deleteSet, updateSet } from '../db/sets'
 import type { WorkoutSet } from '../db/types'
-import { formatWeight, parseDecimal, parseInteger } from '../lib/format'
+import { formatWeight, parseDecimal, parseOptionalInteger } from '../lib/format'
 
 interface Props {
   set: WorkoutSet
@@ -14,18 +14,21 @@ interface Props {
 /** 既存セットの編集・削除 */
 export function SetEditSheet({ set, onClose }: Props) {
   const [weight, setWeight] = useState(formatWeight(set.weightKg))
-  const [reps, setReps] = useState(String(set.reps))
+  const [reps, setReps] = useState(set.reps === null ? '' : String(set.reps))
+  const [duration, setDuration] = useState(set.durationSec === null ? '' : String(set.durationSec))
   const [memo, setMemo] = useState(set.memo)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSave(e: FormEvent) {
     e.preventDefault()
     const w = parseDecimal(weight)
-    const r = parseInteger(reps)
+    const r = parseOptionalInteger(reps)
+    const d = parseOptionalInteger(duration)
     if (w === null) return setError('重量は 0 以上の数値で入力してください')
-    if (r === null || r < 1) return setError('Reps は 1 以上の整数で入力してください')
+    if (r === undefined) return setError('Reps は 1 以上の整数で入力してください')
+    if (d === undefined) return setError('秒は 1 以上の整数で入力してください')
     try {
-      await updateSet(set.id, { weightKg: w, reps: r, memo })
+      await updateSet(set.id, { weightKg: w, reps: r, durationSec: d, memo })
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -41,9 +44,10 @@ export function SetEditSheet({ set, onClose }: Props) {
   return (
     <Sheet title={`${set.setNumber} セット目を編集`} onClose={onClose}>
       <form onSubmit={handleSave} noValidate className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <NumberField label="重量" value={weight} onChange={setWeight} mode="decimal" suffix="kg" />
           <NumberField label="Reps" value={reps} onChange={setReps} mode="integer" />
+          <NumberField label="秒" value={duration} onChange={setDuration} mode="integer" />
         </div>
         <label className="flex flex-col gap-1">
           <span className={label}>メモ（任意）</span>

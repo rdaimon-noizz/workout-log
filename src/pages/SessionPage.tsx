@@ -9,7 +9,7 @@ import { db } from '../db/db'
 import { deleteExerciseSession, updateSessionMemo } from '../db/sessions'
 import { addSet, listSets } from '../db/sets'
 import type { WorkoutSet } from '../db/types'
-import { formatWeight, parseDecimal, parseInteger } from '../lib/format'
+import { formatSet, formatWeight, parseDecimal, parseOptionalInteger } from '../lib/format'
 
 /** セット入力画面（最重要画面）。入力欄と [セット追加] は画面下部に固定する */
 export default function SessionPage() {
@@ -22,6 +22,7 @@ export default function SessionPage() {
 
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
+  const [duration, setDuration] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [editingSet, setEditingSet] = useState<WorkoutSet | null>(null)
   const [memoDraft, setMemoDraft] = useState<string | null>(null)
@@ -32,18 +33,21 @@ export default function SessionPage() {
     if (prefilled.current || sets.length === 0) return
     const last = sets[sets.length - 1]
     setWeight(formatWeight(last.weightKg))
-    setReps(String(last.reps))
+    setReps(last.reps === null ? '' : String(last.reps))
+    setDuration(last.durationSec === null ? '' : String(last.durationSec))
     prefilled.current = true
   }, [sets])
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault()
     const w = parseDecimal(weight)
-    const r = parseInteger(reps)
+    const r = parseOptionalInteger(reps)
+    const d = parseOptionalInteger(duration)
     if (w === null) return setError('重量を入力してください（自重なら 0）')
-    if (r === null || r < 1) return setError('Reps を 1 以上で入力してください')
+    if (r === undefined) return setError('Reps は 1 以上の整数で入力してください')
+    if (d === undefined) return setError('秒は 1 以上の整数で入力してください')
     try {
-      await addSet(sessionId, { weightKg: w, reps: r })
+      await addSet(sessionId, { weightKg: w, reps: r, durationSec: d })
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -100,9 +104,7 @@ export default function SessionPage() {
                     className={`${card} flex w-full items-center gap-3 text-left`}
                   >
                     <span className="w-5 text-slate-500 tabular-nums">{s.setNumber}</span>
-                    <span className="flex-1 text-xl font-semibold tabular-nums">
-                      {formatWeight(s.weightKg)} <span className="text-base font-normal text-slate-400">kg</span> × {s.reps}
-                    </span>
+                    <span className="flex-1 text-xl font-semibold tabular-nums">{formatSet(s)}</span>
                     {s.memo && <span className="max-w-28 truncate text-sm text-slate-400">{s.memo}</span>}
                   </button>
                 </li>
@@ -135,9 +137,10 @@ export default function SessionPage() {
               {error}
             </p>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <NumberField label="重量" value={weight} onChange={setWeight} mode="decimal" suffix="kg" />
             <NumberField label="Reps" value={reps} onChange={setReps} mode="integer" />
+            <NumberField label="秒" value={duration} onChange={setDuration} mode="integer" />
           </div>
           <button type="submit" className={`${btnPrimary} h-14 w-full text-lg`}>
             セット追加

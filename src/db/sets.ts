@@ -4,16 +4,25 @@ import { newId, nowIso } from '../lib/time'
 
 export interface SetInput {
   weightKg: number
-  reps: number
+  /** 回数。秒だけの種目では null */
+  reps: number | null
+  /** 秒。使わなければ null */
+  durationSec: number | null
   memo?: string
 }
 
-export function validateSetInput(input: Pick<SetInput, 'weightKg' | 'reps'>): void {
+export function validateSetInput(input: Pick<SetInput, 'weightKg' | 'reps' | 'durationSec'>): void {
   if (!Number.isFinite(input.weightKg) || input.weightKg < 0) {
     throw new Error('重量は 0 以上の数値で入力してください')
   }
-  if (!Number.isInteger(input.reps) || input.reps < 1) {
+  if (input.reps !== null && (!Number.isInteger(input.reps) || input.reps < 1)) {
     throw new Error('Reps は 1 以上の整数で入力してください')
+  }
+  if (input.durationSec !== null && (!Number.isInteger(input.durationSec) || input.durationSec < 1)) {
+    throw new Error('秒は 1 以上の整数で入力してください')
+  }
+  if (input.reps === null && input.durationSec === null) {
+    throw new Error('Reps か秒のどちらかを入力してください')
   }
 }
 
@@ -34,6 +43,7 @@ export async function addSet(sessionId: string, input: SetInput, database: Worko
       setNumber,
       weightKg: input.weightKg,
       reps: input.reps,
+      durationSec: input.durationSec,
       memo: input.memo ?? '',
       createdAt: now,
       updatedAt: now,
@@ -43,11 +53,16 @@ export async function addSet(sessionId: string, input: SetInput, database: Worko
   })
 }
 
+/** 指定した項目だけ変更する。null を渡すとその項目を消す（undefined は変更なし） */
 export async function updateSet(id: string, patch: Partial<SetInput>, database: WorkoutLogDB = db): Promise<void> {
   await database.transaction('rw', database.workoutSets, async () => {
     const current = await database.workoutSets.get(id)
     if (!current) throw new Error('セットが見つかりません')
-    const next = { weightKg: patch.weightKg ?? current.weightKg, reps: patch.reps ?? current.reps }
+    const next = {
+      weightKg: patch.weightKg ?? current.weightKg,
+      reps: patch.reps !== undefined ? patch.reps : current.reps,
+      durationSec: patch.durationSec !== undefined ? patch.durationSec : current.durationSec,
+    }
     validateSetInput(next)
     await database.workoutSets.update(id, { ...next, memo: patch.memo ?? current.memo, updatedAt: nowIso() })
   })
