@@ -35,7 +35,7 @@ npm run dev        # 開発サーバー（http://localhost:5173）
 
 `main` ブランチへ push すると GitHub Actions（`.github/workflows/deploy.yml`）が lint / typecheck / test / build を実行し、GitHub Pages へ配信します。
 
-- 配信 URL は `https://<GitHubユーザー名>.github.io/workout-log/`
+- 配信 URL は `https://rdaimon-noizz.github.io/workout-log/`
 - サブパス配信のため、CI では環境変数 `VITE_BASE=/workout-log/` を渡してビルドしています。ローカルで同じビルドを再現する場合は PowerShell で `$env:VITE_BASE='/workout-log/'; npm run build` を実行してください（Git Bash では `/workout-log/` が Windows パスに変換されてしまうため、`MSYS_NO_PATHCONV=1` を付けるか PowerShell を使います）。
 - GitHub Pages に SPA 用のフォールバックは無いため、ビルド後に `index.html` を `404.html` としてもコピーしています。
 
@@ -83,7 +83,7 @@ set_id, set_number, weight_kg, reps, set_memo, set_created_at
 
 | Phase | 内容 | 状態 |
 |---|---|---|
-| 1 | 基盤（Vite / Dexie スキーマ / PWA / CI / デプロイ） | 実装中 |
+| 1 | 基盤（Vite / Dexie スキーマ / PWA / CI / デプロイ） | 完了（2026-09-18） |
 | 2 | 記録（種目 CRUD・Workout・セットの追加/編集/削除） | 未着手 |
 | 3 | 履歴（Workout 一覧/詳細・種目別履歴・前回記録・重量推移） | 未着手 |
 | 4 | 出力（CSV・JSON バックアップ/復元） | 未着手 |
