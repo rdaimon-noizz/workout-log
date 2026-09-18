@@ -13,9 +13,19 @@ export default function HistoryPage() {
     <AppShell title="履歴" nav>
       <div className="flex flex-col gap-3">
         <Link to="/history/exercises" className={`${cardButton} flex items-center justify-between`}>
-          <span className="text-lg font-semibold">種目別の履歴・重量推移</span>
+          <span className="text-lg font-semibold">種目別の履歴・推移</span>
           <span className="text-slate-500">›</span>
         </Link>
+        <div className="grid grid-cols-2 gap-2">
+          <Link to="/history/weekly" className={`${cardButton} flex items-center justify-between`}>
+            <span className="font-semibold">週ごとの集計</span>
+            <span className="text-slate-500">›</span>
+          </Link>
+          <Link to="/history/muscles" className={`${cardButton} flex items-center justify-between`}>
+            <span className="font-semibold">部位別（週）</span>
+            <span className="text-slate-500">›</span>
+          </Link>
+        </div>
 
         {summaries === undefined ? null : summaries.length === 0 ? (
           <p className={`${card} text-slate-400`}>まだ記録がありません</p>

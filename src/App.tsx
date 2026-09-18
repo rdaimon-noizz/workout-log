@@ -12,6 +12,9 @@ import WorkoutPage from './pages/WorkoutPage'
 
 // グラフ（Recharts）は重いので、種目別履歴の画面だけ別チャンクにして必要なときに読む（Service Worker が事前キャッシュするのでオフラインでも開く）
 const ExerciseHistoryPage = lazy(() => import('./pages/ExerciseHistoryPage'))
+const WeeklyPage = lazy(() => import('./pages/WeeklyPage'))
+const MusclesPage = lazy(() => import('./pages/MusclesPage'))
+const loading = <p className="p-6 text-center text-slate-500">読み込み中…</p>
 
 export default function App() {
   return (
@@ -26,8 +29,24 @@ export default function App() {
       <Route
         path="/history/exercises/:exerciseId"
         element={
-          <Suspense fallback={<p className="p-6 text-center text-slate-500">読み込み中…</p>}>
+          <Suspense fallback={loading}>
             <ExerciseHistoryPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/history/weekly"
+        element={
+          <Suspense fallback={loading}>
+            <WeeklyPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/history/muscles"
+        element={
+          <Suspense fallback={loading}>
+            <MusclesPage />
           </Suspense>
         }
       />
