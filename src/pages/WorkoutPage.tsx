@@ -72,7 +72,7 @@ export default function WorkoutPage() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-lg font-semibold">{exercise?.name ?? '（削除された種目）'}</span>
                     <span className="block truncate text-sm text-slate-400">
-                      {sets.length === 0 ? 'セットなし' : formatSetsCompact(sets)}
+                      {sets.length === 0 ? 'セットなし' : formatSetsCompact(sets, { bodyweight: exercise?.usesBodyweight })}
                     </span>
                   </span>
                   <span className="text-slate-500">›</span>

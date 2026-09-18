@@ -3,7 +3,7 @@ import { legacyMuscles } from './legacy'
 import type { Exercise, ExerciseSession, Workout, WorkoutSet } from './types'
 
 /** IndexedDB スキーマの版。構造を変えるときに上げ、Dexie の version() と upgrade() を追加する */
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 export class WorkoutLogDB extends Dexie {
   exercises!: EntityTable<Exercise, 'id'>
@@ -25,7 +25,7 @@ export class WorkoutLogDB extends Dexie {
     })
 
     // 版 2（Phase 2.5）: 種目は複数の部位、セットに秒を追加し reps を省略可にした
-    this.version(SCHEMA_VERSION)
+    this.version(2)
       .stores({
         exercises: 'id, &nameKey, *muscles',
         workouts: 'id, date, startedAt',
@@ -46,6 +46,23 @@ export class WorkoutLogDB extends Dexie {
           .modify((s: Record<string, unknown>) => {
             if (s.durationSec === undefined) s.durationSec = null
             if (s.reps === undefined) s.reps = null
+          })
+      })
+
+    // 版 3（v4）: 種目に usesBodyweight（自重種目か）を追加。インデックスは変わらない
+    this.version(SCHEMA_VERSION)
+      .stores({
+        exercises: 'id, &nameKey, *muscles',
+        workouts: 'id, date, startedAt',
+        exerciseSessions: 'id, workoutId, exerciseId, [workoutId+order]',
+        workoutSets: 'id, exerciseSessionId, [exerciseSessionId+setNumber]',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('exercises')
+          .toCollection()
+          .modify((e: Record<string, unknown>) => {
+            if (e.usesBodyweight === undefined) e.usesBodyweight = false
           })
       })
   }

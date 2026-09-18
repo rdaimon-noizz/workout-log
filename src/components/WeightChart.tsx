@@ -18,7 +18,7 @@ function shortDate(date: string): string {
 }
 
 function describe(p: WeightPoint): string {
-  let text = `${formatWeight(p.maxWeightKg)} kg`
+  let text = `${formatWeight(p.maxLoadKg)} kg`
   if (p.repsAtMax !== null) text += ` × ${p.repsAtMax}`
   if (p.durationAtMax !== null) text += p.repsAtMax !== null ? `（${p.durationAtMax}秒）` : ` ${p.durationAtMax}秒`
   return text
@@ -31,7 +31,7 @@ export function WeightChart({ points }: Props) {
   }
   return (
     <div>
-      <div className="h-56 w-full" role="img" aria-label="Workout ごとの最高重量の推移">
+      <div className="h-56 w-full" role="img" aria-label="Workout ごとの最高負荷の推移">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={points} margin={{ top: 12, right: 12, bottom: 0, left: -12 }}>
             <CartesianGrid stroke={GRID} vertical={false} />
@@ -60,13 +60,19 @@ export function WeightChart({ points }: Props) {
                   <div className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 shadow">
                     <div className="text-slate-400">{formatDateJa(p.date)}</div>
                     <div className="font-semibold tabular-nums">{describe(p)}</div>
+                    {p.usesBodyweight && p.bodyweight.kg !== null && (
+                      <div className="text-xs text-slate-400">
+                        体重 {formatWeight(p.bodyweight.kg)} kg
+                        {p.bodyweight.source === 'previous' && p.bodyweight.date ? `（${formatDateJa(p.bodyweight.date)} の記録）` : ''}
+                      </div>
+                    )}
                   </div>
                 )
               }}
             />
             <Line
               type="monotone"
-              dataKey="maxWeightKg"
+              dataKey="maxLoadKg"
               stroke={LINE}
               strokeWidth={2}
               dot={{ r: 4, fill: LINE, stroke: SURFACE, strokeWidth: 2 }}

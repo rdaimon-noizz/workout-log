@@ -8,11 +8,13 @@ import { formatWeight, parseDecimal, parseOptionalInteger } from '../lib/format'
 
 interface Props {
   set: WorkoutSet
+  /** 自重種目なら重量欄を「加重」と表示する */
+  bodyweight?: boolean
   onClose: () => void
 }
 
 /** 既存セットの編集・削除 */
-export function SetEditSheet({ set, onClose }: Props) {
+export function SetEditSheet({ set, bodyweight = false, onClose }: Props) {
   const [weight, setWeight] = useState(formatWeight(set.weightKg))
   const [reps, setReps] = useState(set.reps === null ? '' : String(set.reps))
   const [duration, setDuration] = useState(set.durationSec === null ? '' : String(set.durationSec))
@@ -45,7 +47,7 @@ export function SetEditSheet({ set, onClose }: Props) {
     <Sheet title={`${set.setNumber} セット目を編集`} onClose={onClose}>
       <form onSubmit={handleSave} noValidate className="flex flex-col gap-4">
         <div className="grid grid-cols-3 gap-2">
-          <NumberField label="重量" value={weight} onChange={setWeight} mode="decimal" suffix="kg" />
+          <NumberField label={bodyweight ? '加重' : '重量'} value={weight} onChange={setWeight} mode="decimal" suffix="kg" />
           <NumberField label="Reps" value={reps} onChange={setReps} mode="integer" />
           <NumberField label="秒" value={duration} onChange={setDuration} mode="integer" />
         </div>

@@ -1,16 +1,9 @@
 import { db, type WorkoutLogDB } from './db'
 import type { Exercise, ExerciseSession, Workout, WorkoutSet } from './types'
+import { computeLoad, resolveBodyweight, type ResolvedBodyweight } from '../lib/load'
+import { compareWorkoutsDesc, isBeforeWorkout } from '../lib/workoutOrder'
 
-/** 新しい順（date 降順 → startedAt 降順） */
-export function compareWorkoutsDesc(a: Pick<Workout, 'date' | 'startedAt'>, b: Pick<Workout, 'date' | 'startedAt'>): number {
-  return b.date.localeCompare(a.date) || b.startedAt.localeCompare(a.startedAt)
-}
-
-/** w が current より前の Workout か（同日なら開始時刻で比較。current 自身は含めない） */
-export function isBeforeWorkout(w: Pick<Workout, 'id' | 'date' | 'startedAt'>, current: Pick<Workout, 'id' | 'date' | 'startedAt'>): boolean {
-  if (w.id === current.id) return false
-  return w.date < current.date || (w.date === current.date && w.startedAt < current.startedAt)
-}
+export { compareWorkoutsDesc, isBeforeWorkout }
 
 export interface WorkoutSummary {
   workout: Workout
@@ -50,6 +43,8 @@ export interface PreviousRecord {
   workout: Workout
   session: ExerciseSession
   sets: WorkoutSet[]
+  /** 前回の Workout 時点で解決した体重（自重種目の負荷表示用） */
+  bodyweight: ResolvedBodyweight
 }
 
 /**
@@ -63,32 +58,37 @@ export async function findPreviousRecord(
 ): Promise<PreviousRecord | undefined> {
   const sessions = await database.exerciseSessions.where('exerciseId').equals(exerciseId).toArray()
   if (sessions.length === 0) return undefined
-  const workoutIds = [...new Set(sessions.map((s) => s.workoutId))]
-  const workouts = (await database.workouts.bulkGet(workoutIds)).filter((w): w is Workout => w !== undefined)
-  const candidates = workouts.filter((w) => isBeforeWorkout(w, current)).sort(compareWorkoutsDesc)
+  const allWorkouts = await database.workouts.toArray()
+  const workoutIds = new Set(sessions.map((s) => s.workoutId))
+  const candidates = allWorkouts.filter((w) => workoutIds.has(w.id) && isBeforeWorkout(w, current)).sort(compareWorkoutsDesc)
   const workout = candidates[0]
   if (!workout) return undefined
   const session = sessions.filter((s) => s.workoutId === workout.id).sort((a, b) => b.order - a.order)[0]
   const sets = await database.workoutSets.where('exerciseSessionId').equals(session.id).sortBy('setNumber')
-  return { workout, session, sets }
+  return { workout, session, sets, bodyweight: resolveBodyweight(workout, allWorkouts) }
 }
 
 export interface ExerciseHistoryEntry {
   workout: Workout
   /** その Workout 内で行った当該種目のセッション（order 順）。セットの無いセッションは除く */
   sessions: Array<{ session: ExerciseSession; sets: WorkoutSet[] }>
+  /** その Workout 時点で解決した体重（自重種目の負荷表示用） */
+  bodyweight: ResolvedBodyweight
 }
 
-/** グラフの 1 点 = 1 Workout の最高重量 */
+/** グラフの 1 点 = 1 Workout の最高負荷（通常種目は最高重量、自重種目は 体重 + 加重 の最大） */
 export interface WeightPoint {
   workoutId: string
   date: string
   startedAt: string
-  maxWeightKg: number
-  /** 最高重量のセットのうち最大の reps（reps の無いセットだけなら null） */
+  maxLoadKg: number
+  /** 最高負荷のセットのうち最大の reps（reps の無いセットだけなら null） */
   repsAtMax: number | null
-  /** 最高重量のセットのうち最大の秒（秒の無いセットだけなら null） */
+  /** 最高負荷のセットのうち最大の秒（秒の無いセットだけなら null） */
   durationAtMax: number | null
+  usesBodyweight: boolean
+  /** 自重種目のとき、使った体重とその出典 */
+  bodyweight: ResolvedBodyweight
 }
 
 export interface ExerciseHistory {
@@ -116,8 +116,10 @@ export async function loadExerciseHistory(exerciseId: string, database: WorkoutL
     setsBySession.set(s.exerciseSessionId, list)
   }
 
-  const workoutIds = [...new Set(sessions.map((s) => s.workoutId))]
-  const workouts = (await database.workouts.bulkGet(workoutIds)).filter((w): w is Workout => w !== undefined)
+  const allWorkouts = await database.workouts.toArray()
+  const workoutIds = new Set(sessions.map((s) => s.workoutId))
+  const workouts = allWorkouts.filter((w) => workoutIds.has(w.id))
+  const usesBodyweight = exercise?.usesBodyweight ?? false
 
   const entries: ExerciseHistoryEntry[] = []
   for (const workout of workouts.sort(compareWorkoutsDesc)) {
@@ -126,26 +128,33 @@ export async function loadExerciseHistory(exerciseId: string, database: WorkoutL
       .sort((a, b) => a.order - b.order)
       .map((session) => ({ session, sets: (setsBySession.get(session.id) ?? []).sort((a, b) => a.setNumber - b.setNumber) }))
       .filter((x) => x.sets.length > 0)
-    if (withSets.length > 0) entries.push({ workout, sessions: withSets })
+    if (withSets.length > 0) entries.push({ workout, sessions: withSets, bodyweight: resolveBodyweight(workout, allWorkouts) })
   }
 
-  const points: WeightPoint[] = entries
-    .map(({ workout, sessions: ss }) => {
-      const all = ss.flatMap((x) => x.sets)
-      const maxWeightKg = Math.max(...all.map((s) => s.weightKg))
-      const top = all.filter((s) => s.weightKg === maxWeightKg)
-      const reps = top.map((s) => s.reps).filter((r): r is number => r !== null)
-      const durations = top.map((s) => s.durationSec).filter((d): d is number => d !== null)
-      return {
-        workoutId: workout.id,
-        date: workout.date,
-        startedAt: workout.startedAt,
-        maxWeightKg,
-        repsAtMax: reps.length > 0 ? Math.max(...reps) : null,
-        durationAtMax: durations.length > 0 ? Math.max(...durations) : null,
-      }
+  const points: WeightPoint[] = []
+  for (const { workout, sessions: ss, bodyweight } of entries) {
+    const all = ss.flatMap((x) => x.sets)
+    const loaded = all
+      .map((s) => ({ set: s, load: computeLoad(s.weightKg, usesBodyweight, bodyweight.kg) }))
+      .filter((x): x is { set: WorkoutSet; load: number } => x.load !== null)
+    // 自重種目で体重が解決できない Workout は点を打たない
+    if (loaded.length === 0) continue
+    const maxLoadKg = Math.max(...loaded.map((x) => x.load))
+    const top = loaded.filter((x) => x.load === maxLoadKg).map((x) => x.set)
+    const reps = top.map((s) => s.reps).filter((r): r is number => r !== null)
+    const durations = top.map((s) => s.durationSec).filter((d): d is number => d !== null)
+    points.push({
+      workoutId: workout.id,
+      date: workout.date,
+      startedAt: workout.startedAt,
+      maxLoadKg,
+      repsAtMax: reps.length > 0 ? Math.max(...reps) : null,
+      durationAtMax: durations.length > 0 ? Math.max(...durations) : null,
+      usesBodyweight,
+      bodyweight,
     })
-    .reverse()
+  }
+  points.reverse()
 
   return { exercise, entries, points }
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatDateJa,
+  formatLoad,
   formatSet,
   formatSetsCompact,
   formatTime,
@@ -54,6 +55,18 @@ describe('format', () => {
     expect(formatSet({ weightKg: 0, reps: null, durationSec: 60 })).toBe('60秒')
     expect(formatSet({ weightKg: 20, reps: null, durationSec: 60 })).toBe('20 kg 60秒')
     expect(formatSet({ weightKg: 0, reps: 12, durationSec: null })).toBe('0 kg × 12')
+  })
+  it('自重種目は「自重+加重」の形で出す', () => {
+    const bw = { bodyweight: true }
+    expect(formatSet({ weightKg: 10, reps: 8, durationSec: null }, bw)).toBe('自重+10 kg × 8')
+    expect(formatSet({ weightKg: 0, reps: 8, durationSec: null }, bw)).toBe('自重 × 8')
+    expect(formatSet({ weightKg: 0, reps: null, durationSec: 60 }, bw)).toBe('自重 60秒')
+    expect(formatSet({ weightKg: 20, reps: null, durationSec: 30 }, bw)).toBe('自重+20 kg 30秒')
+    expect(formatSetsCompact([{ weightKg: 10, reps: 8, durationSec: null }, { weightKg: 0, reps: 12, durationSec: null }], bw)).toBe('自重+10×8　自重×12')
+  })
+  it('formatLoad', () => {
+    expect(formatLoad(82.5)).toBe('82.5 kg')
+    expect(formatLoad(null)).toBe('負荷 不明')
   })
   it('formatSetsCompact', () => {
     expect(

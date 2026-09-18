@@ -59,7 +59,10 @@ export default function ExercisesPage() {
                 className={`${cardButton} flex w-full items-center gap-3 text-left`}
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-lg font-semibold">{e.name}</span>
+                  <span className="block truncate text-lg font-semibold">
+                    {e.name}
+                    {e.usesBodyweight && <span className="ml-2 rounded-md bg-slate-700 px-1.5 py-0.5 align-middle text-xs font-normal text-slate-300">自重</span>}
+                  </span>
                   <span className="block truncate text-sm text-slate-400">
                     {e.muscles.length > 0 ? e.muscles.join('・') : '部位未設定'}
                   </span>
@@ -111,7 +114,7 @@ export default function ExercisesPage() {
       {editing && (
         <ExerciseFormSheet
           title="種目を編集"
-          initial={{ name: editing.name, muscles: editing.muscles }}
+          initial={{ name: editing.name, muscles: editing.muscles, usesBodyweight: editing.usesBodyweight }}
           onClose={() => setEditing(null)}
           onSubmit={async (input) => {
             await updateExercise(editing.id, input)

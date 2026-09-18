@@ -2,6 +2,7 @@ import { SCHEMA_VERSION, db, type WorkoutLogDB } from './db'
 import { compareWorkoutsDesc } from './history'
 import type { Exercise, ExerciseSession, Workout, WorkoutSet } from './types'
 import { csvValue, toCsv } from '../lib/csv'
+import { computeLoad, resolveBodyweight } from '../lib/load'
 import { nowIso } from '../lib/time'
 
 /** CSV の列（この順で固定。追加は末尾のみ。改名・意味変更はしない） */
@@ -25,6 +26,8 @@ export const CSV_COLUMNS = [
   'set_memo',
   'set_created_at',
   'duration_sec',
+  'is_bodyweight_exercise',
+  'load_kg',
 ] as const
 
 /** 1 行 = 1 セット。Workout の古い順 → 種目の order → setNumber */
@@ -43,8 +46,10 @@ export async function buildCsvRows(database: WorkoutLogDB = db): Promise<string[
 
   const rows: string[][] = [[...CSV_COLUMNS]]
   for (const w of [...workouts].sort(compareWorkoutsDesc).reverse()) {
+    const bodyweight = resolveBodyweight(w, workouts)
     for (const session of (sessionsByWorkout.get(w.id) ?? []).sort((a, b) => a.order - b.order)) {
       const exercise = exerciseById.get(session.exerciseId)
+      const usesBodyweight = exercise?.usesBodyweight ?? false
       for (const set of (setsBySession.get(session.id) ?? []).sort((a, b) => a.setNumber - b.setNumber)) {
         rows.push([
           w.date,
@@ -66,6 +71,8 @@ export async function buildCsvRows(database: WorkoutLogDB = db): Promise<string[
           set.memo,
           set.createdAt,
           csvValue(set.durationSec),
+          usesBodyweight ? '1' : '0',
+          csvValue(computeLoad(set.weightKg, usesBodyweight, bodyweight.kg)),
         ])
       }
     }
@@ -145,7 +152,7 @@ export function parseBackup(text: string): BackupFile {
   if (obj.schemaVersion > SCHEMA_VERSION) {
     throw new Error(`このバックアップは新しい形式（版 ${obj.schemaVersion}）です。アプリを更新してから復元してください`)
   }
-  if (obj.schemaVersion < SCHEMA_VERSION) {
+  if (obj.schemaVersion < 2) {
     throw new Error(`このバックアップは古い形式（版 ${obj.schemaVersion}）で、復元に対応していません`)
   }
   const tables = obj.tables as Record<string, unknown> | undefined
@@ -156,7 +163,14 @@ export function parseBackup(text: string): BackupFile {
       throw new Error(`バックアップの内容が壊れています（${name}）`)
     }
   }
-  return data as BackupFile
+  return upgradeBackup(data as BackupFile)
+}
+
+/** 旧版のバックアップを現在の版に変換する。版 2 → 3: 種目に usesBodyweight = false を補う */
+export function upgradeBackup(backup: BackupFile): BackupFile {
+  if (backup.schemaVersion >= SCHEMA_VERSION) return backup
+  const exercises = backup.tables.exercises.map((e) => ({ ...e, usesBodyweight: e.usesBodyweight ?? false }))
+  return { ...backup, schemaVersion: SCHEMA_VERSION, tables: { ...backup.tables, exercises } }
 }
 
 /** 全テーブルを置き換えて復元する。途中で失敗したら元のデータのまま（1 トランザクション） */

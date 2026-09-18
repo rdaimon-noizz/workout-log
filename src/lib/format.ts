@@ -48,13 +48,28 @@ export interface SetLike {
   durationSec: number | null
 }
 
+export interface SetFormatOptions {
+  /** 自重種目なら weightKg を加重として「自重+10 kg」の形で出す */
+  bodyweight?: boolean
+}
+
+/** 重量部分。通常: 220 kg（重量 0・reps なしなら空）／ 自重種目: 自重 または 自重+10 kg */
+function weightPart(s: SetLike, opts?: SetFormatOptions, compact = false): string {
+  if (opts?.bodyweight) {
+    if (s.weightKg > 0) return compact ? `自重+${formatWeight(s.weightKg)}` : `自重+${formatWeight(s.weightKg)} kg`
+    return '自重'
+  }
+  const show = s.weightKg > 0 || s.reps !== null
+  if (!show) return ''
+  return compact ? formatWeight(s.weightKg) : `${formatWeight(s.weightKg)} kg`
+}
+
 /**
- * セット 1 本の表示。例: 220 kg × 5 ／ 200 kg × 3（2秒）／ 60秒 ／ 20 kg 60秒
+ * セット 1 本の表示。例: 220 kg × 5 ／ 200 kg × 3（2秒）／ 60秒 ／ 20 kg 60秒 ／ 自重+10 kg × 8 ／ 自重 × 8
  * 重量 0 で reps も無いセット（プランク等）は重量を出さない。
  */
-export function formatSet(s: SetLike): string {
-  const showWeight = s.weightKg > 0 || s.reps !== null
-  let out = showWeight ? `${formatWeight(s.weightKg)} kg` : ''
+export function formatSet(s: SetLike, opts?: SetFormatOptions): string {
+  let out = weightPart(s, opts)
   if (s.reps !== null) out += ` × ${s.reps}`
   if (s.durationSec !== null) {
     if (s.reps !== null) out += `（${s.durationSec}秒）`
@@ -63,10 +78,9 @@ export function formatSet(s: SetLike): string {
   return out
 }
 
-/** セット 1 本の短い表示。例: 220×5 ／ 200×3(2秒) ／ 60秒 ／ 20×60秒 */
-export function formatSetCompact(s: SetLike): string {
-  const showWeight = s.weightKg > 0 || s.reps !== null
-  let out = showWeight ? formatWeight(s.weightKg) : ''
+/** セット 1 本の短い表示。例: 220×5 ／ 200×3(2秒) ／ 60秒 ／ 20×60秒 ／ 自重+10×8 ／ 自重×8 */
+export function formatSetCompact(s: SetLike, opts?: SetFormatOptions): string {
+  let out = weightPart(s, opts, true)
   if (s.reps !== null) out += `×${s.reps}`
   if (s.durationSec !== null) {
     if (s.reps !== null) out += `(${s.durationSec}秒)`
@@ -76,8 +90,8 @@ export function formatSetCompact(s: SetLike): string {
 }
 
 /** セット一覧の 1 行要約。各セットを全角スペースで区切る */
-export function formatSetsCompact(sets: ReadonlyArray<SetLike>): string {
-  return sets.map(formatSetCompact).join('　')
+export function formatSetsCompact(sets: ReadonlyArray<SetLike>, opts?: SetFormatOptions): string {
+  return sets.map((s) => formatSetCompact(s, opts)).join('　')
 }
 
 /**
@@ -87,4 +101,9 @@ export function parseOptionalInteger(input: string): number | null | undefined {
   if (input.trim() === '') return null
   const n = parseInteger(input)
   return n === null || n < 1 ? undefined : n
+}
+
+/** 負荷の表示。体重が解決できず計算できないときは「負荷 不明」 */
+export function formatLoad(kg: number | null): string {
+  return kg === null ? '負荷 不明' : `${formatWeight(kg)} kg`
 }

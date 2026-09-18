@@ -39,6 +39,16 @@ describe('createExercise', () => {
     expect(await listActiveExercises(database)).toHaveLength(1)
   })
 
+  it('自重種目の印を付けて作成・変更でき、省略時は false', async () => {
+    const database = freshDb()
+    const dip = await createExercise({ name: 'Dip', muscles: ['大胸筋'], usesBodyweight: true }, database)
+    const bench = await createExercise({ name: 'Bench Press', muscles: [] }, database)
+    expect(dip.usesBodyweight).toBe(true)
+    expect(bench.usesBodyweight).toBe(false)
+    await updateExercise(dip.id, { usesBodyweight: false }, database)
+    expect((await database.exercises.get(dip.id))!.usesBodyweight).toBe(false)
+  })
+
   it('部位なしでも作成できる', async () => {
     const database = freshDb()
     const ex = await createExercise({ name: 'Farmer Walk', muscles: [] }, database)

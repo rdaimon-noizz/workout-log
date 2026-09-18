@@ -4,7 +4,8 @@ import { AppShell } from '../components/AppShell'
 import { WeightChart } from '../components/WeightChart'
 import { card, cardButton, label } from '../components/ui'
 import { loadExerciseHistory } from '../db/history'
-import { formatDateJa, formatSet, formatTime, weekdayJa } from '../lib/format'
+import { formatDateJa, formatLoad, formatSet, formatTime, weekdayJa } from '../lib/format'
+import { computeLoad } from '../lib/load'
 
 /** 種目別履歴: 最高重量の推移グラフと、Workout ごとのセット一覧（新しい順） */
 export default function ExerciseHistoryPage() {
@@ -27,7 +28,7 @@ export default function ExerciseHistoryPage() {
     <AppShell title={exercise.name} back="/history/exercises">
       <div className="flex flex-col gap-4">
         <section className={card}>
-          <h2 className={label}>Workout ごとの最高重量（kg）</h2>
+          <h2 className={label}>{exercise.usesBodyweight ? 'Workout ごとの最高負荷（体重＋加重、kg）' : 'Workout ごとの最高重量（kg）'}</h2>
           <WeightChart points={points} />
         </section>
 
@@ -35,7 +36,7 @@ export default function ExerciseHistoryPage() {
           <p className="py-4 text-center text-slate-400">この種目の記録はまだありません</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {entries.map(({ workout, sessions }) => (
+            {entries.map(({ workout, sessions, bodyweight }) => (
               <li key={workout.id}>
                 <Link to={`/workouts/${workout.id}`} className={`${cardButton} flex items-start gap-3`}>
                   <span className="min-w-0 flex-1">
@@ -48,7 +49,10 @@ export default function ExerciseHistoryPage() {
                     <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-slate-300">
                       {sessions.flatMap((x) => x.sets).map((s) => (
                         <li key={s.id} className="tabular-nums">
-                          {formatSet(s)}
+                          {formatSet(s, { bodyweight: exercise.usesBodyweight })}
+                          {exercise.usesBodyweight && (
+                            <span className="ml-1 text-slate-500">{formatLoad(computeLoad(s.weightKg, true, bodyweight.kg))}</span>
+                          )}
                         </li>
                       ))}
                     </ul>

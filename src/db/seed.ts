@@ -21,6 +21,7 @@ export async function ensureSeedExercises(database: WorkoutLogDB = db): Promise<
       name,
       nameKey: toNameKey(name),
       muscles: [...muscles],
+      usesBodyweight: false,
       createdAt: now,
       updatedAt: now,
       archivedAt: null,

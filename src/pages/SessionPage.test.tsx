@@ -106,6 +106,28 @@ describe('SessionPage', () => {
     expect(screen.getByRole('link', { name: 'この種目の履歴・推移 ›' })).toHaveAttribute('href', `/history/exercises/${exerciseId}`)
   })
 
+  it('自重種目では加重欄になり、体重＋加重の負荷を表示する', async () => {
+    const dip = await createExercise({ name: 'Dip', muscles: ['大胸筋'], usesBodyweight: true })
+    await db.workouts.update(workoutId, { bodyweightKg: 70 })
+    const dipSession = await addExerciseSession(workoutId, dip.id)
+    sessionId = dipSession.id
+
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Dip' })
+    const added = screen.getByLabelText('加重')
+    await waitFor(() => expect(added).toHaveValue('0'))
+    expect(screen.queryByLabelText('重量')).not.toBeInTheDocument()
+    expect(await screen.findByText(/体重 70 kg/)).toBeInTheDocument()
+
+    fireEvent.change(added, { target: { value: '10' } })
+    expect(screen.getByText(/＋ 加重 10 kg ＝/)).toBeInTheDocument()
+    expect(screen.getByText('80 kg', { selector: 'span.font-semibold' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '8' } })
+    fireEvent.click(screen.getByRole('button', { name: 'セット追加' }))
+    const row = (await screen.findByText('自重+10 kg × 8')).closest('button')
+    expect(row).toHaveTextContent('80 kg')
+  })
+
   it('数値入力欄は iOS のテンキーが出る属性を持つ', async () => {
     renderPage()
     await screen.findByRole('heading', { level: 1, name: 'Deadlift' })

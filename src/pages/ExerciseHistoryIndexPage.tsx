@@ -36,6 +36,9 @@ export default function ExerciseHistoryIndexPage() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-lg font-semibold">
                     {exercise.name}
+                    {exercise.usesBodyweight && (
+                      <span className="ml-2 rounded-md bg-slate-700 px-1.5 py-0.5 align-middle text-xs font-normal text-slate-300">自重</span>
+                    )}
                     {exercise.archivedAt !== null && <span className="ml-2 text-xs text-slate-500">アーカイブ済み</span>}
                   </span>
                   <span className="block text-sm text-slate-400">

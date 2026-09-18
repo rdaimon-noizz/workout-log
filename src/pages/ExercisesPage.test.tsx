@@ -41,6 +41,20 @@ describe('ExercisesPage', () => {
     expect(await screen.findByText('広背筋・僧帽筋')).toBeInTheDocument()
   })
 
+  it('自重種目のスイッチを入れて保存すると印が付く', async () => {
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Lat Pulldown/ }))
+    const dialog = await screen.findByRole('dialog', { name: '種目を編集' })
+    const toggle = within(dialog).getByRole('checkbox', { name: /自重種目/ })
+    expect(toggle).not.toBeChecked()
+    fireEvent.click(toggle)
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    await waitFor(async () => {
+      expect((await db.exercises.get(exerciseId))!.usesBodyweight).toBe(true)
+    })
+    expect(await screen.findByText('自重')).toBeInTheDocument()
+  })
+
   it('候補にない部位を自由入力で追加すると選択済みのチップになり、保存後は候補に残る', async () => {
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: /Lat Pulldown/ }))

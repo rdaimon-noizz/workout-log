@@ -19,6 +19,7 @@ interface Props {
 export function ExerciseFormSheet({ title, initial, submitLabel = '保存', onSubmit, onClose, footer }: Props) {
   const [name, setName] = useState(initial.name)
   const [muscles, setMuscles] = useState<string[]>(initial.muscles ?? [])
+  const [usesBodyweight, setUsesBodyweight] = useState(initial.usesBodyweight ?? false)
   const [customMuscle, setCustomMuscle] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -52,7 +53,7 @@ export function ExerciseFormSheet({ title, initial, submitLabel = '保存', onSu
     e.preventDefault()
     setBusy(true)
     try {
-      await onSubmit({ name, muscles })
+      await onSubmit({ name, muscles, usesBodyweight })
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -118,6 +119,19 @@ export function ExerciseFormSheet({ title, initial, submitLabel = '保存', onSu
             </button>
           </div>
         </fieldset>
+
+        <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-2xl bg-slate-800 px-4 py-2">
+          <span>
+            <span className="block">自重種目</span>
+            <span className="block text-xs text-slate-400">負荷 = 体重 + 加重 で計算する（懸垂・ディップス・腕立てなど）</span>
+          </span>
+          <input
+            type="checkbox"
+            checked={usesBodyweight}
+            onChange={(e) => setUsesBodyweight(e.target.checked)}
+            className="h-6 w-6 shrink-0 accent-sky-500"
+          />
+        </label>
 
         {error && (
           <p role="alert" className="text-sm text-rose-400">

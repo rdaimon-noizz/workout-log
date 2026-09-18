@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { WorkoutLogDB } from './db'
-import { createExercise, archiveExercise } from './exercises'
+import { archiveExercise, createExercise } from './exercises'
 import { findPreviousRecord, listExercisesWithHistory, listWorkoutSummaries, loadExerciseHistory } from './history'
 import { addExerciseSession } from './sessions'
 import { addSet } from './sets'
@@ -76,10 +76,37 @@ describe('loadExerciseHistory', () => {
     const h = await loadExerciseHistory(dl.id, database)
     expect(h.exercise?.name).toBe('Deadlift')
     expect(h.entries.map((e) => e.workout.id)).toEqual([w3.id, w1.id])
-    expect(h.points.map((p) => [p.date, p.maxWeightKg, p.repsAtMax, p.durationAtMax])).toEqual([
+    expect(h.points.map((p) => [p.date, p.maxLoadKg, p.repsAtMax, p.durationAtMax])).toEqual([
       ['2026-09-10', 200, 7, null],
       ['2026-09-18', 0, null, 60],
     ])
+  })
+
+  it('自重種目は 体重 + 加重 の最高負荷を点にし、体重が解決できない Workout は点を打たない', async () => {
+    const database = freshDb()
+    const pullUp = await createExercise({ name: 'Pull Up', muscles: ['広背筋'], usesBodyweight: true }, database)
+    // 9/10: 体重なし・直近もなし → 点なし
+    const w1 = await workoutAt(database, '2026-09-10', '10:00')
+    const s1 = await addExerciseSession(w1.id, pullUp.id, database)
+    await addSet(s1.id, { weightKg: 0, reps: 8, durationSec: null }, database)
+    // 9/12: 体重 70
+    const w2 = await startWorkout({ date: '2026-09-12', startedAt: combineLocalDateTime('2026-09-12', '10:00'), bodyweightKg: 70 }, database)
+    const s2 = await addExerciseSession(w2.id, pullUp.id, database)
+    await addSet(s2.id, { weightKg: 0, reps: 10, durationSec: null }, database)
+    await addSet(s2.id, { weightKg: 10, reps: 6, durationSec: null }, database)
+    // 9/15: 体重なし → 9/12 の 70 を使う
+    const w3 = await workoutAt(database, '2026-09-15', '10:00')
+    const s3 = await addExerciseSession(w3.id, pullUp.id, database)
+    await addSet(s3.id, { weightKg: 5, reps: 8, durationSec: null }, database)
+
+    const h = await loadExerciseHistory(pullUp.id, database)
+    expect(h.entries).toHaveLength(3)
+    expect(h.entries[0].bodyweight).toEqual({ kg: 70, source: 'previous', date: '2026-09-12' })
+    expect(h.points.map((p) => [p.date, p.maxLoadKg, p.repsAtMax, p.bodyweight.source])).toEqual([
+      ['2026-09-12', 80, 6, 'this'],
+      ['2026-09-15', 75, 8, 'previous'],
+    ])
+    expect(h.points.every((p) => p.usesBodyweight)).toBe(true)
   })
 
   it('記録が無ければ空', async () => {

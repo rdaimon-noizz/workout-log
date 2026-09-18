@@ -35,8 +35,8 @@ async function createLegacyDb(name: string) {
   legacy.close()
 }
 
-describe('スキーマ版 1 → 2 の移行', () => {
-  it('category を部位配列に変換し、セットに durationSec を補う', async () => {
+describe('スキーマ版 1 → 3 の移行', () => {
+  it('category を部位配列に変換し、セットに durationSec を、種目に usesBodyweight を補う', async () => {
     const name = `test-migration-${crypto.randomUUID()}`
     names.push(name)
     await createLegacyDb(name)
@@ -48,6 +48,7 @@ describe('スキーマ版 1 → 2 の移行', () => {
     const deadlift = await database.exercises.get('e1')
     expect(deadlift!.muscles).toEqual(['脊柱起立筋', 'ハムストリング', '大臀筋'])
     expect('category' in deadlift!).toBe(false)
+    expect(deadlift!.usesBodyweight).toBe(false)
     expect((await database.exercises.get('e2'))!.muscles).toEqual(['大胸筋'])
     expect((await database.exercises.get('e3'))!.muscles).toEqual(['脚'])
 
@@ -56,6 +57,29 @@ describe('スキーマ版 1 → 2 の移行', () => {
 
     // multiEntry インデックスで部位から検索できる
     expect((await database.exercises.where('muscles').equals('大臀筋').toArray()).map((e) => e.id)).toEqual(['e1'])
+    database.close()
+  })
+})
+
+describe('スキーマ版 2 → 3 の移行', () => {
+  it('muscles はそのまま、usesBodyweight = false を補う', async () => {
+    const name = `test-migration-v2-${crypto.randomUUID()}`
+    names.push(name)
+    const legacy = new Dexie(name)
+    legacy.version(2).stores({
+      exercises: 'id, &nameKey, *muscles',
+      workouts: 'id, date, startedAt',
+      exerciseSessions: 'id, workoutId, exerciseId, [workoutId+order]',
+      workoutSets: 'id, exerciseSessionId, [exerciseSessionId+setNumber]',
+    })
+    const t = '2026-09-18T10:00:00+09:00'
+    await legacy.table('exercises').add({ id: 'e1', name: 'Pull Up', nameKey: 'pull up', muscles: ['広背筋'], createdAt: t, updatedAt: t, archivedAt: null })
+    legacy.close()
+
+    const database = new WorkoutLogDB(name)
+    await database.open()
+    expect(database.verno).toBe(SCHEMA_VERSION)
+    expect(await database.exercises.get('e1')).toMatchObject({ muscles: ['広背筋'], usesBodyweight: false })
     database.close()
   })
 })

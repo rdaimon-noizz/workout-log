@@ -35,6 +35,8 @@ export interface Exercise {
   nameKey: string
   /** 部位（複数可・空も可）。Dexie では multiEntry インデックス */
   muscles: string[]
+  /** 自重種目か。true なら weightKg は加重で、負荷 = 体重 + 加重 */
+  usesBodyweight: boolean
   createdAt: IsoDateTime
   updatedAt: IsoDateTime
   archivedAt: IsoDateTime | null
@@ -71,7 +73,7 @@ export interface WorkoutSet {
   exerciseSessionId: string
   /** セッション内の何本目か（1 始まり。削除時に振り直す） */
   setNumber: number
-  /** kg。小数可。自重種目は 0 */
+  /** kg。小数可。通常種目は使用重量、自重種目（Exercise.usesBodyweight）では加重（付けた重さ。無ければ 0） */
   weightKg: number
   /** 回数。秒だけの種目（プランク等）では null */
   reps: number | null

@@ -12,7 +12,8 @@ import { findPreviousRecord } from '../db/history'
 import { deleteExerciseSession, updateSessionMemo } from '../db/sessions'
 import { addSet, listSets } from '../db/sets'
 import type { WorkoutSet } from '../db/types'
-import { formatDateJa, formatSet, formatWeight, parseDecimal, parseOptionalInteger, weekdayJa } from '../lib/format'
+import { formatDateJa, formatLoad, formatSet, formatWeight, parseDecimal, parseOptionalInteger, weekdayJa } from '../lib/format'
+import { computeLoad, resolveBodyweightFor } from '../lib/load'
 
 /** セット入力画面（最重要画面）。入力欄と [セット追加] は画面下部に固定する */
 export default function SessionPage() {
@@ -25,6 +26,13 @@ export default function SessionPage() {
   const loadedSets = useLiveQuery(() => listSets(sessionId), [sessionId])
   const sets = loadedSets ?? []
   const workout = useLiveQuery(() => db.workouts.get(workoutId), [workoutId])
+  // 自重種目の負荷計算に使う体重（この Workout の値 → 直近の値 → 無し）
+  const bodyweight = useLiveQuery(
+    () => (workout ? resolveBodyweightFor(workout) : null),
+    [workout?.id, workout?.bodyweightKg, workout?.date, workout?.startedAt],
+    null,
+  )
+  const usesBodyweight = exercise?.usesBodyweight ?? false
   // null = 読み込み中（セッション・Workout が揃うまでも null）、undefined = 前回なし
   const previous = useLiveQuery(
     () => (session && workout ? findPreviousRecord(session.exerciseId, workout) : null),
@@ -44,14 +52,17 @@ export default function SessionPage() {
   // 入力欄の初期値: このセッションの直前セット → 無ければ前回記録の 1 セット目 → 無ければ空
   useEffect(() => {
     if (prefilled.current || loadedSets === undefined || previous === null) return
+    if (exercise === undefined) return
     const source = loadedSets.length > 0 ? loadedSets[loadedSets.length - 1] : previous?.sets[0]
     if (source) {
       setWeight(formatWeight(source.weightKg))
       setReps(source.reps === null ? '' : String(source.reps))
       setDuration(source.durationSec === null ? '' : String(source.durationSec))
+    } else if (exercise.usesBodyweight) {
+      setWeight('0')
     }
     prefilled.current = true
-  }, [loadedSets, previous])
+  }, [loadedSets, previous, exercise])
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault()
@@ -118,7 +129,10 @@ export default function SessionPage() {
             <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-slate-200">
               {previous.sets.map((s) => (
                 <li key={s.id} className="tabular-nums">
-                  {formatSet(s)}
+                  {formatSet(s, { bodyweight: usesBodyweight })}
+                  {usesBodyweight && (
+                    <span className="ml-1 text-slate-500">{formatLoad(computeLoad(s.weightKg, true, previous.bodyweight.kg))}</span>
+                  )}
                 </li>
               ))}
               {previous.sets.length === 0 && <li className="text-slate-500">セットなし</li>}
@@ -147,7 +161,12 @@ export default function SessionPage() {
                     className={`${cardButton} flex w-full items-center gap-3 text-left`}
                   >
                     <span className="w-5 text-slate-500 tabular-nums">{s.setNumber}</span>
-                    <span className="flex-1 text-xl font-semibold tabular-nums">{formatSet(s)}</span>
+                    <span className="flex-1 text-xl font-semibold tabular-nums">{formatSet(s, { bodyweight: usesBodyweight })}</span>
+                    {usesBodyweight && (
+                      <span className="shrink-0 text-sm text-slate-400 tabular-nums">
+                        {formatLoad(computeLoad(s.weightKg, true, bodyweight?.kg ?? null))}
+                      </span>
+                    )}
                     {s.memo && <span className="max-w-28 truncate text-sm text-slate-400">{s.memo}</span>}
                   </button>
                 </li>
@@ -180,8 +199,31 @@ export default function SessionPage() {
               {error}
             </p>
           )}
+          {usesBodyweight && (
+            <p className="text-sm text-slate-300 tabular-nums">
+              {bodyweight === null ? null : bodyweight.kg === null ? (
+                <>
+                  体重が未入力です。
+                  <Link to={`/workouts/${workoutId}`} className="text-sky-400">
+                    トレーニングの「編集」で入力
+                  </Link>
+                  すると負荷を計算します
+                </>
+              ) : (
+                <>
+                  体重 {formatWeight(bodyweight.kg)} kg
+                  {bodyweight.source === 'previous' && bodyweight.date && (
+                    <span className="text-slate-500">（{formatDateJa(bodyweight.date)} の記録）</span>
+                  )}
+                  {' ＋ 加重 '}
+                  {formatWeight(parseDecimal(weight) ?? 0)} kg ＝{' '}
+                  <span className="font-semibold text-slate-100">{formatLoad(computeLoad(parseDecimal(weight) ?? 0, true, bodyweight.kg))}</span>
+                </>
+              )}
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-2">
-            <NumberField label="重量" value={weight} onChange={setWeight} mode="decimal" suffix="kg" />
+            <NumberField label={usesBodyweight ? '加重' : '重量'} value={weight} onChange={setWeight} mode="decimal" suffix="kg" />
             <NumberField label="Reps" value={reps} onChange={setReps} mode="integer" />
             <NumberField label="秒" value={duration} onChange={setDuration} mode="integer" />
           </div>
@@ -191,11 +233,11 @@ export default function SessionPage() {
         </div>
       </form>
 
-      {editingSet && <SetEditSheet set={editingSet} onClose={() => setEditingSet(null)} />}
+      {editingSet && <SetEditSheet set={editingSet} bodyweight={usesBodyweight} onClose={() => setEditingSet(null)} />}
       {editingExercise && exercise && (
         <ExerciseFormSheet
           title="種目を編集"
-          initial={{ name: exercise.name, muscles: exercise.muscles }}
+          initial={{ name: exercise.name, muscles: exercise.muscles, usesBodyweight: exercise.usesBodyweight }}
           onClose={() => setEditingExercise(false)}
           onSubmit={async (input) => {
             await updateExercise(exercise.id, input)

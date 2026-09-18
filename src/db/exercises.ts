@@ -25,6 +25,8 @@ export interface ExerciseInput {
   name: string
   /** 部位（複数可）。保存前に normalizeMuscles で整える */
   muscles: string[]
+  /** 自重種目か（省略時 false） */
+  usesBodyweight?: boolean
 }
 
 /** 部位配列の正規化: 前後空白と連続空白を整え、空と重複を除く。順序は維持 */
@@ -81,6 +83,7 @@ export async function createExercise(input: ExerciseInput, database: WorkoutLogD
       name,
       nameKey,
       muscles: normalizeMuscles(input.muscles),
+      usesBodyweight: input.usesBodyweight ?? false,
       createdAt: now,
       updatedAt: now,
       archivedAt: null,
@@ -108,6 +111,7 @@ export async function updateExercise(
       changes.nameKey = nameKey
     }
     if (patch.muscles !== undefined) changes.muscles = normalizeMuscles(patch.muscles)
+    if (patch.usesBodyweight !== undefined) changes.usesBodyweight = patch.usesBodyweight
     await database.exercises.update(id, changes)
   })
 }

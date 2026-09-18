@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { WorkoutLogDB } from './db'
 import { CSV_COLUMNS, buildCsvRows, exportCsv } from './export'
 import { seedTwoWorkouts } from './exportFixture'
+import { createExercise } from './exercises'
+import { addExerciseSession } from './sessions'
+import { addSet } from './sets'
+import { startWorkout } from './workouts'
 import { CSV_BOM } from '../lib/csv'
+import { combineLocalDateTime } from '../lib/time'
 
 const dbs: WorkoutLogDB[] = []
 function freshDb(): WorkoutLogDB {
@@ -22,7 +27,7 @@ describe('buildCsvRows', () => {
     const { dl, plank, w1, w2, s1, s2 } = await seedTwoWorkouts(database)
     const rows = await buildCsvRows(database)
     expect(rows[0]).toEqual([...CSV_COLUMNS])
-    expect(rows[0]).toHaveLength(19)
+    expect(rows[0]).toHaveLength(21)
     expect(rows).toHaveLength(4)
 
     // 1 行目 = 9/10 のプランク（秒だけ・体重なし・reps 空・進行中なので ended_at 空）
@@ -52,7 +57,34 @@ describe('buildCsvRows', () => {
     expect([rows[3][col('weight_kg')], rows[3][col('reps')], rows[3][col('duration_sec')]]).toEqual(['200', '3', '2'])
     expect(rows[2][col('started_at')]).toMatch(/^2026-09-18T19:00:00/)
     expect(rows[2][col('ended_at')]).not.toBe('')
+    // 通常種目: 自重フラグ 0、負荷 = 重量
+    expect([rows[2][col('is_bodyweight_exercise')], rows[2][col('load_kg')]]).toEqual(['0', '220'])
+    expect([rows[1][col('is_bodyweight_exercise')], rows[1][col('load_kg')]]).toEqual(['0', '0'])
     expect(rows[2][col('set_created_at')]).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+  })
+
+  it('自重種目は is_bodyweight_exercise = 1、load_kg = 体重 + 加重（体重は直近の記録で補い、無ければ空）', async () => {
+    const database = freshDb()
+    const pullUp = await createExercise({ name: 'Pull Up', muscles: ['広背筋'], usesBodyweight: true }, database)
+    const w0 = await startWorkout({ date: '2026-09-05', startedAt: combineLocalDateTime('2026-09-05', '10:00') }, database)
+    const s0 = await addExerciseSession(w0.id, pullUp.id, database)
+    await addSet(s0.id, { weightKg: 0, reps: 5, durationSec: null }, database)
+    const w1 = await startWorkout({ date: '2026-09-10', startedAt: combineLocalDateTime('2026-09-10', '10:00'), bodyweightKg: 70 }, database)
+    const s1 = await addExerciseSession(w1.id, pullUp.id, database)
+    await addSet(s1.id, { weightKg: 0, reps: 8, durationSec: null }, database)
+    await addSet(s1.id, { weightKg: 10, reps: 5, durationSec: null }, database)
+    const w2 = await startWorkout({ date: '2026-09-12', startedAt: combineLocalDateTime('2026-09-12', '10:00') }, database)
+    const s2 = await addExerciseSession(w2.id, pullUp.id, database)
+    await addSet(s2.id, { weightKg: 5, reps: 6, durationSec: null }, database)
+
+    const rows = await buildCsvRows(database)
+    const pick = (r: string[]) => [r[col('date')], r[col('bodyweight_kg')], r[col('weight_kg')], r[col('is_bodyweight_exercise')], r[col('load_kg')]]
+    expect(rows.slice(1).map(pick)).toEqual([
+      ['2026-09-05', '', '0', '1', ''],
+      ['2026-09-10', '70', '0', '1', '70'],
+      ['2026-09-10', '70', '10', '1', '80'],
+      ['2026-09-12', '', '5', '1', '75'],
+    ])
   })
 
   it('セットが無ければヘッダーだけ', async () => {
