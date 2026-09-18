@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { AppShell } from '../components/AppShell'
 import { NumberField } from '../components/NumberField'
 import { ExerciseFormSheet } from '../components/ExerciseFormSheet'
@@ -8,10 +8,11 @@ import { SetEditSheet } from '../components/SetEditSheet'
 import { btnGhost, btnPrimary, card, cardButton, field, label } from '../components/ui'
 import { db } from '../db/db'
 import { updateExercise } from '../db/exercises'
+import { findPreviousRecord } from '../db/history'
 import { deleteExerciseSession, updateSessionMemo } from '../db/sessions'
 import { addSet, listSets } from '../db/sets'
 import type { WorkoutSet } from '../db/types'
-import { formatSet, formatWeight, parseDecimal, parseOptionalInteger } from '../lib/format'
+import { formatDateJa, formatSet, formatWeight, parseDecimal, parseOptionalInteger, weekdayJa } from '../lib/format'
 
 /** セット入力画面（最重要画面）。入力欄と [セット追加] は画面下部に固定する */
 export default function SessionPage() {
@@ -20,7 +21,16 @@ export default function SessionPage() {
   // null = 読み込み中、undefined = 存在しない
   const session = useLiveQuery(() => db.exerciseSessions.get(sessionId), [sessionId], null)
   const exercise = useLiveQuery(() => (session ? db.exercises.get(session.exerciseId) : undefined), [session?.exerciseId])
-  const sets = useLiveQuery(() => listSets(sessionId), [sessionId], [])
+  // undefined = 読み込み中（初期値の決定を待つため区別する）
+  const loadedSets = useLiveQuery(() => listSets(sessionId), [sessionId])
+  const sets = loadedSets ?? []
+  const workout = useLiveQuery(() => db.workouts.get(workoutId), [workoutId])
+  // null = 読み込み中（セッション・Workout が揃うまでも null）、undefined = 前回なし
+  const previous = useLiveQuery(
+    () => (session && workout ? findPreviousRecord(session.exerciseId, workout) : null),
+    [session?.exerciseId, workout?.id, workout?.date, workout?.startedAt],
+    null,
+  )
 
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
@@ -31,15 +41,17 @@ export default function SessionPage() {
   const [memoDraft, setMemoDraft] = useState<string | null>(null)
   const prefilled = useRef(false)
 
-  // 入力欄の初期値はこのセッションの直前セット（前回記録へのフォールバックは Phase 3）
+  // 入力欄の初期値: このセッションの直前セット → 無ければ前回記録の 1 セット目 → 無ければ空
   useEffect(() => {
-    if (prefilled.current || sets.length === 0) return
-    const last = sets[sets.length - 1]
-    setWeight(formatWeight(last.weightKg))
-    setReps(last.reps === null ? '' : String(last.reps))
-    setDuration(last.durationSec === null ? '' : String(last.durationSec))
+    if (prefilled.current || loadedSets === undefined || previous === null) return
+    const source = loadedSets.length > 0 ? loadedSets[loadedSets.length - 1] : previous?.sets[0]
+    if (source) {
+      setWeight(formatWeight(source.weightKg))
+      setReps(source.reps === null ? '' : String(source.reps))
+      setDuration(source.durationSec === null ? '' : String(source.durationSec))
+    }
     prefilled.current = true
-  }, [sets])
+  }, [loadedSets, previous])
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault()
@@ -98,6 +110,29 @@ export default function SessionPage() {
       }
     >
       <div className="flex flex-col gap-4 pb-48">
+        <section className={card}>
+          <h2 className={label}>
+            前回{previous ? `：${formatDateJa(previous.workout.date)}（${weekdayJa(previous.workout.date)}）` : ''}
+          </h2>
+          {previous === null ? null : previous ? (
+            <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-slate-200">
+              {previous.sets.map((s) => (
+                <li key={s.id} className="tabular-nums">
+                  {formatSet(s)}
+                </li>
+              ))}
+              {previous.sets.length === 0 && <li className="text-slate-500">セットなし</li>}
+            </ul>
+          ) : (
+            <p className="mt-1 text-slate-500">前回の記録はありません</p>
+          )}
+          {exercise && (
+            <Link to={`/history/exercises/${exercise.id}`} className="mt-2 inline-block text-sm text-sky-400">
+              この種目の履歴・推移 ›
+            </Link>
+          )}
+        </section>
+
         <section>
           <h2 className={`mb-2 ${label}`}>今回</h2>
           {sets.length === 0 ? (

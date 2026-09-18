@@ -7,13 +7,17 @@ import { db } from '../db/db'
 import { createExercise } from '../db/exercises'
 import { addExerciseSession } from '../db/sessions'
 import { startWorkout } from '../db/workouts'
+import { addSet } from '../db/sets'
+import { combineLocalDateTime } from '../lib/time'
 
 let workoutId = ''
 let sessionId = ''
+let exerciseId = ''
 
 beforeEach(async () => {
   await Promise.all([db.workoutSets.clear(), db.exerciseSessions.clear(), db.workouts.clear(), db.exercises.clear()])
   const exercise = await createExercise({ name: 'Deadlift', muscles: ['脊柱起立筋'] })
+  exerciseId = exercise.id
   const workout = await startWorkout({})
   const session = await addExerciseSession(workout.id, exercise.id)
   workoutId = workout.id
@@ -77,6 +81,29 @@ describe('SessionPage', () => {
     await waitFor(async () => {
       expect((await db.exercises.toArray())[0].muscles).toEqual(['脊柱起立筋', 'ハムストリング'])
     })
+  })
+
+  it('前回記録が無ければその旨を表示する', async () => {
+    renderPage()
+    expect(await screen.findByText('前回の記録はありません')).toBeInTheDocument()
+  })
+
+  it('前回記録を表示し、セットが無いときは前回の 1 セット目を入力欄の初期値にする', async () => {
+    // 現在の Workout より前の Workout に同じ種目の記録を作る
+    const past = await startWorkout({ date: '2026-09-10', startedAt: combineLocalDateTime('2026-09-10', '10:00') })
+    const pastSession = await addExerciseSession(past.id, exerciseId)
+    await addSet(pastSession.id, { weightKg: 100, reps: 8, durationSec: null })
+    await addSet(pastSession.id, { weightKg: 105, reps: 6, durationSec: null })
+    // startWorkout が今日の Workout を閉じてしまうので、進行中に戻す
+    await db.workouts.update(workoutId, { endedAt: null })
+
+    renderPage()
+    expect(await screen.findByText('前回：2026/09/10（木）')).toBeInTheDocument()
+    expect(screen.getByText('100 kg × 8')).toBeInTheDocument()
+    expect(screen.getByText('105 kg × 6')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText('重量')).toHaveValue('100'))
+    expect(screen.getByLabelText('Reps')).toHaveValue('8')
+    expect(screen.getByRole('link', { name: 'この種目の履歴・推移 ›' })).toHaveAttribute('href', `/history/exercises/${exerciseId}`)
   })
 
   it('数値入力欄は iOS のテンキーが出る属性を持つ', async () => {

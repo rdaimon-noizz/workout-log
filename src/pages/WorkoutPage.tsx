@@ -28,6 +28,7 @@ export default function WorkoutPage() {
 
   const { workout, sessions } = detail
   const isActive = workout.endedAt === null
+  const back = isActive ? '/' : '/history'
 
   async function handleFinish() {
     if (!window.confirm('トレーニングを終了しますか？')) return
@@ -43,7 +44,7 @@ export default function WorkoutPage() {
   return (
     <AppShell
       title={`${formatDateJa(workout.date)}（${weekdayJa(workout.date)}）`}
-      back="/"
+      back={back}
       action={
         <button type="button" onClick={() => setEditing(true)} className={btnGhost}>
           編集

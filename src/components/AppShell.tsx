@@ -47,6 +47,9 @@ function BottomNav() {
         <NavLink to="/" end className={linkClass}>
           記録
         </NavLink>
+        <NavLink to="/history" className={linkClass}>
+          履歴
+        </NavLink>
         <NavLink to="/exercises" className={linkClass}>
           種目
         </NavLink>
