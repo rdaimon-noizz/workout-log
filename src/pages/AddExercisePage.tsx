@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { AppShell } from '../components/AppShell'
 import { ExerciseFormSheet } from '../components/ExerciseFormSheet'
-import { btnSecondary, card, field } from '../components/ui'
+import { btnSecondary, cardButton, field } from '../components/ui'
 import { createExercise, filterExercises, listActiveExercises } from '../db/exercises'
 import { addExerciseSession } from '../db/sessions'
 
@@ -39,7 +39,7 @@ export default function AddExercisePage() {
               <button
                 type="button"
                 onClick={() => choose(e.id)}
-                className={`${card} flex w-full items-center gap-3 text-left`}
+                className={`${cardButton} flex w-full items-center gap-3 text-left`}
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-lg font-semibold">{e.name}</span>

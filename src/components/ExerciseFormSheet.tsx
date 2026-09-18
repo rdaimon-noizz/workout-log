@@ -22,7 +22,18 @@ export function ExerciseFormSheet({ title, initial, submitLabel = '保存', onSu
   const [customMuscle, setCustomMuscle] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const used = useLiveQuery(() => listUsedMuscles(), [], [])
+  const used = useLiveQuery(
+    async () => {
+      try {
+        return await listUsedMuscles()
+      } catch (err) {
+        console.error('部位候補の取得に失敗', err)
+        return []
+      }
+    },
+    [],
+    [],
+  )
   // 候補 = 用意した部位 ＋ 既存種目で使われている部位 ＋ いま選んでいる部位（自由入力したものを含む）
   const options = normalizeMuscles([...MUSCLE_SUGGESTIONS, ...used, ...muscles])
 

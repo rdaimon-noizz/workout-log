@@ -5,7 +5,7 @@ import { AppShell } from '../components/AppShell'
 import { NumberField } from '../components/NumberField'
 import { ExerciseFormSheet } from '../components/ExerciseFormSheet'
 import { SetEditSheet } from '../components/SetEditSheet'
-import { btnGhost, btnPrimary, card, field, label } from '../components/ui'
+import { btnGhost, btnPrimary, card, cardButton, field, label } from '../components/ui'
 import { db } from '../db/db'
 import { updateExercise } from '../db/exercises'
 import { deleteExerciseSession, updateSessionMemo } from '../db/sessions'
@@ -109,7 +109,7 @@ export default function SessionPage() {
                   <button
                     type="button"
                     onClick={() => setEditingSet(s)}
-                    className={`${card} flex w-full items-center gap-3 text-left`}
+                    className={`${cardButton} flex w-full items-center gap-3 text-left`}
                   >
                     <span className="w-5 text-slate-500 tabular-nums">{s.setNumber}</span>
                     <span className="flex-1 text-xl font-semibold tabular-nums">{formatSet(s)}</span>

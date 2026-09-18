@@ -38,6 +38,7 @@ export default function HomePage() {
         <Link to="/workouts/new" className={`${active ? btnSecondary : btnPrimary} w-full`}>
           新しいトレーニング
         </Link>
+        <p className="mt-6 text-center text-xs text-slate-600">版 {__BUILD_ID__}</p>
       </div>
     </AppShell>
   )

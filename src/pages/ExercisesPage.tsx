@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { AppShell } from '../components/AppShell'
 import { ExerciseFormSheet } from '../components/ExerciseFormSheet'
-import { btnDanger, btnGhost, btnSecondary, card, field } from '../components/ui'
+import { btnDanger, btnGhost, btnSecondary, card, cardButton, field } from '../components/ui'
 import {
   archiveExercise,
   createExercise,
@@ -56,7 +56,7 @@ export default function ExercisesPage() {
               <button
                 type="button"
                 onClick={() => setEditing(e)}
-                className={`${card} flex w-full items-center gap-3 text-left`}
+                className={`${cardButton} flex w-full items-center gap-3 text-left`}
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-lg font-semibold">{e.name}</span>

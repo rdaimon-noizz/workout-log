@@ -37,10 +37,15 @@ export function normalizeMuscles(muscles: readonly string[]): string[] {
   return out
 }
 
-/** 既存種目（アーカイブ含む）で使われている部位の一覧（重複なし・昇順） */
+/**
+ * 既存種目（アーカイブ含む）で使われている部位の一覧（重複なし・昇順）。
+ * 種目数は多くても数十件なので全件を読んで集める（multiEntry インデックスのカーソル走査はブラウザ差があるため使わない）。
+ */
 export async function listUsedMuscles(database: WorkoutLogDB = db): Promise<string[]> {
-  const keys = await database.exercises.orderBy('muscles').uniqueKeys()
-  return keys.map(String)
+  const all = await database.exercises.toArray()
+  const found = new Set<string>()
+  for (const e of all) for (const m of e.muscles ?? []) found.add(m)
+  return [...found].sort((a, b) => a.localeCompare(b, 'ja'))
 }
 
 export function listActiveExercises(database: WorkoutLogDB = db): Promise<Exercise[]> {

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { AppShell } from '../components/AppShell'
 import { WorkoutEditSheet } from '../components/WorkoutEditSheet'
-import { btnDanger, btnGhost, btnPrimary, btnSecondary, card } from '../components/ui'
+import { btnDanger, btnGhost, btnPrimary, btnSecondary, card, cardButton } from '../components/ui'
 import { loadWorkoutDetail } from '../db/queries'
 import { deleteWorkout, finishWorkout } from '../db/workouts'
 import { formatDateJa, formatSetsCompact, formatTime, formatWeight, weekdayJa } from '../lib/format'
@@ -66,7 +66,7 @@ export default function WorkoutPage() {
           <ul className="flex flex-col gap-2">
             {sessions.map(({ session, exercise, sets }) => (
               <li key={session.id}>
-                <Link to={`/workouts/${workout.id}/sessions/${session.id}`} className={`${card} flex items-center gap-3`}>
+                <Link to={`/workouts/${workout.id}/sessions/${session.id}`} className={`${cardButton} flex items-center gap-3`}>
                   <span className="w-5 text-slate-500 tabular-nums">{session.order}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-lg font-semibold">{exercise?.name ?? '（削除された種目）'}</span>

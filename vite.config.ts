@@ -10,6 +10,10 @@ const base = process.env.VITE_BASE ?? '/'
 
 export default defineConfig({
   base,
+  define: {
+    // GitHub Actions ではコミット SHA、ローカルでは 'dev'。ホーム画面の下に表示して、どの版を触っているか分かるようにする
+    __BUILD_ID__: JSON.stringify((process.env.GITHUB_SHA ?? 'dev').slice(0, 7)),
+  },
   plugins: [
     react(),
     tailwindcss(),
