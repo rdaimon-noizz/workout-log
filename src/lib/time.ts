@@ -49,3 +49,8 @@ export function combineLocalDateTime(date: string, time: string): string {
 export function dateOfIso(iso: string): string {
   return iso.slice(0, 10)
 }
+
+/** ファイル名用の時刻 YYYYMMDD-HHmm（端末ローカル） */
+export function fileStamp(d: Date = new Date()): string {
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`
+}

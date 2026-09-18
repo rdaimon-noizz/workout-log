@@ -53,6 +53,9 @@ function BottomNav() {
         <NavLink to="/exercises" className={linkClass}>
           種目
         </NavLink>
+        <NavLink to="/data" className={linkClass}>
+          データ
+        </NavLink>
       </div>
     </nav>
   )

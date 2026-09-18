@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import AddExercisePage from './pages/AddExercisePage'
+import DataPage from './pages/DataPage'
 import ExerciseHistoryIndexPage from './pages/ExerciseHistoryIndexPage'
 import ExercisesPage from './pages/ExercisesPage'
 import HistoryPage from './pages/HistoryPage'
@@ -31,6 +32,7 @@ export default function App() {
         }
       />
       <Route path="/exercises" element={<ExercisesPage />} />
+      <Route path="/data" element={<DataPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
