@@ -36,6 +36,8 @@ describe('WeeklyPage', () => {
     renderPage()
     await screen.findByRole('heading', { level: 1, name: '週ごとの集計' })
     const metricGroup = await screen.findByRole('group', { name: '指標' })
+    // 集計データの読み込みが終わるとボリュームのボタンが現れる（それまではセット数・日数だけ）
+    await within(metricGroup).findByRole('button', { name: 'ボリューム' })
     expect(within(metricGroup).getAllByRole('button').map((b) => b.textContent)).toEqual(['ボリューム', 'セット数', '回数', 'トレーニング日数'])
     expect(screen.getByText('全種目 の週ごとのボリューム（kg）')).toBeInTheDocument()
 
