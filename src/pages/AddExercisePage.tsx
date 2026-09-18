@@ -39,10 +39,15 @@ export default function AddExercisePage() {
               <button
                 type="button"
                 onClick={() => choose(e.id)}
-                className={`${card} flex w-full items-center justify-between gap-3 text-left`}
+                className={`${card} flex w-full items-center gap-3 text-left`}
               >
-                <span className="min-w-0 flex-1 truncate text-lg font-semibold">{e.name}</span>
-                <span className="max-w-[45%] shrink-0 truncate text-sm text-slate-400">{e.muscles.join('・')}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-lg font-semibold">{e.name}</span>
+                  <span className="block truncate text-sm text-slate-400">
+                    {e.muscles.length > 0 ? e.muscles.join('・') : '部位未設定'}
+                  </span>
+                </span>
+                <span className="shrink-0 text-slate-500">›</span>
               </button>
             </li>
           ))}

@@ -56,15 +56,23 @@ export default function ExercisesPage() {
               <button
                 type="button"
                 onClick={() => setEditing(e)}
-                className={`${card} flex w-full items-center justify-between gap-3 text-left`}
+                className={`${card} flex w-full items-center gap-3 text-left`}
               >
-                <span className="min-w-0 flex-1 truncate text-lg font-semibold">{e.name}</span>
-                <span className="max-w-[45%] shrink-0 truncate text-sm text-slate-400">{e.muscles.join('・')}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-lg font-semibold">{e.name}</span>
+                  <span className="block truncate text-sm text-slate-400">
+                    {e.muscles.length > 0 ? e.muscles.join('・') : '部位未設定'}
+                  </span>
+                </span>
+                <span className="shrink-0 text-sm text-slate-400">編集 ›</span>
               </button>
             </li>
           ))}
         </ul>
         {filtered.length === 0 && <p className="text-center text-sm text-slate-400">該当する種目がありません</p>}
+        {filtered.length > 0 && (
+          <p className="text-center text-xs text-slate-500">種目をタップすると名前と部位を編集できます</p>
+        )}
 
         {archived.length > 0 && (
           <button

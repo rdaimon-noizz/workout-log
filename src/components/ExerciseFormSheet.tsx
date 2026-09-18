@@ -18,7 +18,7 @@ interface Props {
 /** 種目の作成・編集フォーム。部位は候補をタップして複数選択し、無ければ自由入力で追加する */
 export function ExerciseFormSheet({ title, initial, submitLabel = '保存', onSubmit, onClose, footer }: Props) {
   const [name, setName] = useState(initial.name)
-  const [muscles, setMuscles] = useState<string[]>(initial.muscles)
+  const [muscles, setMuscles] = useState<string[]>(initial.muscles ?? [])
   const [customMuscle, setCustomMuscle] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)

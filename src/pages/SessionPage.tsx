@@ -3,9 +3,11 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { AppShell } from '../components/AppShell'
 import { NumberField } from '../components/NumberField'
+import { ExerciseFormSheet } from '../components/ExerciseFormSheet'
 import { SetEditSheet } from '../components/SetEditSheet'
 import { btnGhost, btnPrimary, card, field, label } from '../components/ui'
 import { db } from '../db/db'
+import { updateExercise } from '../db/exercises'
 import { deleteExerciseSession, updateSessionMemo } from '../db/sessions'
 import { addSet, listSets } from '../db/sets'
 import type { WorkoutSet } from '../db/types'
@@ -25,6 +27,7 @@ export default function SessionPage() {
   const [duration, setDuration] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [editingSet, setEditingSet] = useState<WorkoutSet | null>(null)
+  const [editingExercise, setEditingExercise] = useState(false)
   const [memoDraft, setMemoDraft] = useState<string | null>(null)
   const prefilled = useRef(false)
 
@@ -84,9 +87,14 @@ export default function SessionPage() {
       title={exercise?.name ?? '種目'}
       back={`/workouts/${workoutId}`}
       action={
-        <button type="button" onClick={handleDeleteSession} className={`${btnGhost} text-rose-300`}>
-          削除
-        </button>
+        <div className="flex items-center">
+          <button type="button" onClick={() => setEditingExercise(true)} disabled={!exercise} className={btnGhost}>
+            種目編集
+          </button>
+          <button type="button" onClick={handleDeleteSession} className={`${btnGhost} text-rose-300`}>
+            削除
+          </button>
+        </div>
       }
     >
       <div className="flex flex-col gap-4 pb-48">
@@ -149,6 +157,16 @@ export default function SessionPage() {
       </form>
 
       {editingSet && <SetEditSheet set={editingSet} onClose={() => setEditingSet(null)} />}
+      {editingExercise && exercise && (
+        <ExerciseFormSheet
+          title="種目を編集"
+          initial={{ name: exercise.name, muscles: exercise.muscles }}
+          onClose={() => setEditingExercise(false)}
+          onSubmit={async (input) => {
+            await updateExercise(exercise.id, input)
+          }}
+        />
+      )}
     </AppShell>
   )
 }

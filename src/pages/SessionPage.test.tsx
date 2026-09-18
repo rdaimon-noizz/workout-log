@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import SessionPage from './SessionPage'
@@ -64,6 +64,19 @@ describe('SessionPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'セット追加' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Reps か秒')
     expect(await db.workoutSets.count()).toBe(0)
+  })
+
+  it('ヘッダーの「種目編集」から種目の部位を変えられる', async () => {
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Deadlift' })
+    fireEvent.click(screen.getByRole('button', { name: '種目編集' }))
+    const dialog = await screen.findByRole('dialog', { name: '種目を編集' })
+    expect(within(dialog).getByRole('button', { name: '脊柱起立筋', pressed: true })).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'ハムストリング' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    await waitFor(async () => {
+      expect((await db.exercises.toArray())[0].muscles).toEqual(['脊柱起立筋', 'ハムストリング'])
+    })
   })
 
   it('数値入力欄は iOS のテンキーが出る属性を持つ', async () => {
