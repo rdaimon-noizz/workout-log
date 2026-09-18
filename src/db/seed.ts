@@ -1,6 +1,7 @@
 import { db, type WorkoutLogDB } from './db'
 import type { Exercise, ExerciseCategory } from './types'
 import { newId, nowIso } from '../lib/time'
+import { toNameKey } from './exercises'
 
 /** 初回起動時に投入する種目 */
 export const INITIAL_EXERCISES: ReadonlyArray<{ name: string; category: ExerciseCategory }> = [
@@ -13,10 +14,6 @@ export const INITIAL_EXERCISES: ReadonlyArray<{ name: string; category: Exercise
   { name: 'Overhead Press', category: 'shoulder' },
 ]
 
-/** 種目名の一意キー。大文字小文字・前後空白・連続空白の違いを同一視する */
-export function toNameKey(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ' ')
-}
 
 /**
  * 種目テーブルが空のときだけ初期種目を投入する。

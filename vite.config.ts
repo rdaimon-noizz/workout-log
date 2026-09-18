@@ -40,7 +40,8 @@ export default defineConfig({
     }),
   ],
   test: {
-    environment: 'jsdom',
+    // DB 層のテストは node で動かし、画面のテストだけ各ファイル先頭の @vitest-environment jsdom を使う
+    environment: 'node',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
   },

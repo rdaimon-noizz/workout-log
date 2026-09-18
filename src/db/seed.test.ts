@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { WorkoutLogDB } from './db'
-import { INITIAL_EXERCISES, ensureSeedExercises, toNameKey } from './seed'
+import { INITIAL_EXERCISES, ensureSeedExercises } from './seed'
+import { toNameKey } from './exercises'
 import { newId, nowIso } from '../lib/time'
 
 const dbs: WorkoutLogDB[] = []

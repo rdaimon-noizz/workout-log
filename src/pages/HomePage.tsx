@@ -1,26 +1,44 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db/db'
+import { Link } from 'react-router'
+import { AppShell } from '../components/AppShell'
+import { btnPrimary, btnSecondary, card } from '../components/ui'
+import { loadSessionDetails } from '../db/queries'
+import { getActiveWorkout } from '../db/workouts'
+import { formatDateJa, formatTime, weekdayJa } from '../lib/format'
 
 export default function HomePage() {
-  const exerciseCount = useLiveQuery(() => db.exercises.count(), [])
+  // null = 読み込み中、undefined = 進行中なし
+  const active = useLiveQuery(() => getActiveWorkout(), [], null)
+  const sessions = useLiveQuery(
+    () => (active ? loadSessionDetails(active.id) : Promise.resolve([])),
+    [active?.id],
+    [],
+  )
+  const setCount = sessions.reduce((n, s) => n + s.sets.length, 0)
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-6 px-4 py-6">
-      <h1 className="text-2xl font-bold">筋トレ記録</h1>
-
-      <section className="rounded-2xl bg-slate-900 p-4">
-        <p className="text-sm text-slate-400">Phase 1: 基盤</p>
-        <p className="mt-1 text-lg">登録種目 {exerciseCount ?? '…'} 件</p>
-      </section>
-
-      <section className="rounded-2xl bg-slate-900 p-4 text-sm leading-relaxed text-slate-300">
-        <h2 className="mb-2 font-semibold text-slate-100">iPhone へのインストール</h2>
-        <ol className="list-decimal space-y-1 pl-5">
-          <li>Safari でこのページを開く</li>
-          <li>共有ボタン →「ホーム画面に追加」</li>
-          <li>以後はホーム画面のアイコンから起動する（Safari 側とは保存領域が別）</li>
-        </ol>
-      </section>
-    </main>
+    <AppShell title="筋トレ記録" nav>
+      <div className="flex flex-col gap-4">
+        {active === null ? null : active ? (
+          <section className={card}>
+            <p className="text-sm text-sky-400">進行中のトレーニング</p>
+            <p className="mt-1 text-xl font-bold">
+              {formatDateJa(active.date)}（{weekdayJa(active.date)}）
+            </p>
+            <p className="mt-1 text-sm text-slate-400">
+              開始 {formatTime(active.startedAt)}・{sessions.length} 種目・{setCount} セット
+            </p>
+            <Link to={`/workouts/${active.id}`} className={`${btnPrimary} mt-4 w-full`}>
+              続ける
+            </Link>
+          </section>
+        ) : (
+          <section className={`${card} text-slate-400`}>進行中のトレーニングはありません</section>
+        )}
+        <Link to="/workouts/new" className={`${active ? btnSecondary : btnPrimary} w-full`}>
+          新しいトレーニング
+        </Link>
+      </div>
+    </AppShell>
   )
 }
