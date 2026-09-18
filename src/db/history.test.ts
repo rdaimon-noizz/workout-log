@@ -103,10 +103,50 @@ describe('loadExerciseHistory', () => {
     expect(h.entries).toHaveLength(3)
     expect(h.entries[0].bodyweight).toEqual({ kg: 70, source: 'previous', date: '2026-09-12' })
     expect(h.points.map((p) => [p.date, p.maxLoadKg, p.repsAtMax, p.bodyweight.source])).toEqual([
+      ['2026-09-10', null, null, null],
       ['2026-09-12', 80, 6, 'this'],
       ['2026-09-15', 75, 8, 'previous'],
     ])
     expect(h.points.every((p) => p.usesBodyweight)).toBe(true)
+    // 体重不明の日はボリューム・推定 1RM も null
+    expect([h.points[0].volumeKg, h.points[0].e1rmKg]).toEqual([null, null])
+    // 9/12: 70×10 + 80×6 = 1180、推定 1RM は max(70×(1+10/30)=93.3, 80×(1+6/30)=96) = 96
+    expect([h.points[1].volumeKg, h.points[1].volumeReps, h.points[1].e1rmKg, h.points[1].e1rmSet]).toEqual([1180, 16, 96, { loadKg: 80, reps: 6 }])
+  })
+
+  it('ボリューム・負荷×時間・合計時間・推定 1RM を対象セットから計算する', async () => {
+    const database = freshDb()
+    const dl = await createExercise({ name: 'Deadlift', muscles: [] }, database)
+    const w1 = await workoutAt(database, '2026-09-10', '10:00')
+    const s1 = await addExerciseSession(w1.id, dl.id, database)
+    await addSet(s1.id, { weightKg: 200, reps: 5, durationSec: null }, database)
+    await addSet(s1.id, { weightKg: 200, reps: 7, durationSec: null }, database)
+    await addSet(s1.id, { weightKg: 180, reps: 10, durationSec: null }, database)
+    await addSet(s1.id, { weightKg: 150, reps: 3, durationSec: 2 }, database) // ポーズ: 回数と秒の両方
+    await addSet(s1.id, { weightKg: 100, reps: null, durationSec: 30 }, database) // ホールドのみ
+
+    const [p] = (await loadExerciseHistory(dl.id, database)).points
+    expect(p.maxLoadKg).toBe(200)
+    expect(p.repsAtMax).toBe(7)
+    // ボリューム: 200×5 + 200×7 + 180×10 + 150×3 = 1000+1400+1800+450 = 4650（ホールドのみのセットは含まない）
+    expect([p.volumeKg, p.volumeReps]).toEqual([4650, 25])
+    // 推定 1RM: 200×(1+7/30) = 246.7 が最大
+    expect([p.e1rmKg, p.e1rmSet]).toEqual([246.7, { loadKg: 200, reps: 7 }])
+    // 負荷×時間: 150×2 + 100×30 = 3300（2 セット）。合計時間: 32 秒
+    expect([p.loadSeconds, p.loadSecondsSets]).toEqual([3300, 2])
+    expect([p.totalSeconds, p.durationSets]).toEqual([32, 2])
+  })
+
+  it('秒だけの種目（プランク・通常種目扱い）は最高負荷 0、ボリューム・推定 1RM は null、合計時間は入る', async () => {
+    const database = freshDb()
+    const plank = await createExercise({ name: 'Plank', muscles: ['腹直筋'] }, database)
+    const w1 = await workoutAt(database, '2026-09-10', '10:00')
+    const s1 = await addExerciseSession(w1.id, plank.id, database)
+    await addSet(s1.id, { weightKg: 0, reps: null, durationSec: 60 }, database)
+    await addSet(s1.id, { weightKg: 0, reps: null, durationSec: 45 }, database)
+    const [p] = (await loadExerciseHistory(plank.id, database)).points
+    expect([p.maxLoadKg, p.durationAtMax, p.volumeKg, p.e1rmKg]).toEqual([0, 60, null, null])
+    expect([p.loadSeconds, p.totalSeconds, p.durationSets]).toEqual([0, 105, 2])
   })
 
   it('記録が無ければ空', async () => {

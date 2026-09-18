@@ -8,3 +8,13 @@ if (typeof document !== 'undefined') {
   const { cleanup } = await import('@testing-library/react')
   afterEach(() => cleanup())
 }
+
+// Recharts の ResponsiveContainer が使う ResizeObserver は jsdom に無いので空実装を置く
+if (typeof document !== 'undefined' && typeof globalThis.ResizeObserver === 'undefined') {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver
+}
