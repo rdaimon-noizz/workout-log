@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { AppShell } from '../components/AppShell'
 import { NumberField } from '../components/NumberField'
@@ -76,8 +76,8 @@ export default function SessionPage() {
     prefilled.current = true
   }, [loadedSets, previous, exercise])
 
-  async function handleAdd(e: FormEvent) {
-    e.preventDefault()
+  async function handleAdd(e?: { preventDefault(): void }) {
+    e?.preventDefault()
     if (saving || added) return
     const w = parseDecimal(weight)
     const r = parseOptionalInteger(reps, 0)
@@ -258,14 +258,27 @@ export default function SessionPage() {
             autoComplete="off"
             className={`${field} h-12 text-base`}
           />
-          <button
-            type="submit"
-            disabled={saving || added !== null}
+          {/*
+            追加ボタンは iOS のスイッチ型チェックボックス（<input type="checkbox" switch>）を透明にして重ねる。
+            指のタップがスイッチを直接切り替えると iOS 17.4 以降は触覚が出る（プログラムからの click では出ないことを実機で確認済み）。
+            役割は button として読み上げ、値は常に未チェックに戻す。Enter での送信は form の onSubmit が受ける。
+          */}
+          <div
             aria-live="polite"
-            className={`${btnPrimary} h-14 w-full text-lg disabled:opacity-100 ${added ? 'bg-emerald-500' : ''}`}
+            className={`${btnPrimary} relative h-14 w-full text-lg ${added ? 'bg-emerald-500' : ''}`}
           >
-            {added ? `✓ ${added.setNumber} セット目を追加（${formatSet(added, { bodyweight: usesBodyweight })}）` : 'セット追加'}
-          </button>
+            <span>{added ? `✓ ${added.setNumber} セット目を追加（${formatSet(added, { bodyweight: usesBodyweight })}）` : 'セット追加'}</span>
+            <input
+              type="checkbox"
+              role="button"
+              aria-label={added ? `✓ ${added.setNumber} セット目を追加（${formatSet(added, { bodyweight: usesBodyweight })}）` : 'セット追加'}
+              checked={false}
+              disabled={saving || added !== null}
+              onChange={() => void handleAdd()}
+              className="absolute inset-0 m-0 h-full w-full cursor-pointer opacity-0"
+              {...({ switch: '' } as Record<string, string>)}
+            />
+          </div>
         </div>
       </form>
 
