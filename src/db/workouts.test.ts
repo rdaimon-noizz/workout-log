@@ -189,7 +189,10 @@ describe('sets', () => {
     await updateSet(a.id, { reps: null, durationSec: 30 }, database)
     expect(await database.workoutSets.get(a.id)).toMatchObject({ reps: null, durationSec: 30 })
     await expect(updateSet(a.id, { durationSec: null }, database)).rejects.toThrow('Reps か秒')
-    await expect(updateSet(a.id, { reps: 0 }, database)).rejects.toThrow('Reps')
+    // reps 0 は失敗として通る。負の数は通らない
+    await updateSet(a.id, { reps: 0, durationSec: null }, database)
+    expect(await database.workoutSets.get(a.id)).toMatchObject({ reps: 0, durationSec: null })
+    await expect(updateSet(a.id, { reps: -1 }, database)).rejects.toThrow('Reps')
     await expect(addSet(session.id, { weightKg: -1, reps: 5, durationSec: null }, database)).rejects.toThrow('重量')
     await expect(addSet(session.id, { weightKg: 100, reps: 2.5, durationSec: null }, database)).rejects.toThrow('Reps')
     await expect(addSet(session.id, { weightKg: 100, reps: 5, durationSec: 0 }, database)).rejects.toThrow('秒')

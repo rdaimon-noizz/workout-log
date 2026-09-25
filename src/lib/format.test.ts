@@ -3,6 +3,7 @@ import {
   formatDateJa,
   formatLoad,
   formatSet,
+  formatSetCompact,
   formatSetsCompact,
   formatTime,
   formatWeight,
@@ -85,5 +86,22 @@ describe('format', () => {
     expect(parseOptionalInteger('0')).toBe(undefined)
     expect(parseOptionalInteger('2.5')).toBe(undefined)
     expect(parseOptionalInteger('abc')).toBe(undefined)
+  })
+
+  it('parseOptionalInteger は min 0 で呼ぶと 0（失敗）を受ける', () => {
+    expect(parseOptionalInteger('0', 0)).toBe(0)
+    expect(parseOptionalInteger('０', 0)).toBe(0)
+    expect(parseOptionalInteger('5', 0)).toBe(5)
+    expect(parseOptionalInteger('-1', 0)).toBe(undefined)
+    expect(parseOptionalInteger('', 0)).toBe(null)
+  })
+
+  it('reps 0 は失敗として表示する', () => {
+    expect(formatSet({ weightKg: 100, reps: 0, durationSec: null })).toBe('100 kg × 0（失敗）')
+    expect(formatSet({ weightKg: 100, reps: 0, durationSec: 2 })).toBe('100 kg × 0（失敗・2秒）')
+    expect(formatSet({ weightKg: 10, reps: 0, durationSec: null }, { bodyweight: true })).toBe('自重+10 kg × 0（失敗）')
+    expect(formatSetCompact({ weightKg: 100, reps: 0, durationSec: null })).toBe('100×0(失敗)')
+    expect(formatSetCompact({ weightKg: 100, reps: 0, durationSec: 2 })).toBe('100×0(失敗・2秒)')
+    expect(formatSetCompact({ weightKg: 100, reps: 5, durationSec: 2 })).toBe('100×5(2秒)')
   })
 })

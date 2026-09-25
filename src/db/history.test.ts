@@ -137,6 +137,32 @@ describe('loadExerciseHistory', () => {
     expect([p.totalSeconds, p.durationSets]).toEqual([32, 2])
   })
 
+  it('失敗セット（reps 0）は最高負荷と推定 1RM に入らず、ボリュームには 0 で入る', async () => {
+    const database = freshDb()
+    const dl = await createExercise({ name: 'Deadlift', muscles: [] }, database)
+    const w1 = await workoutAt(database, '2026-09-10', '10:00')
+    const s1 = await addExerciseSession(w1.id, dl.id, database)
+    await addSet(s1.id, { weightKg: 200, reps: 5, durationSec: null }, database)
+    await addSet(s1.id, { weightKg: 230, reps: 0, durationSec: null }, database) // 失敗
+
+    const [p] = (await loadExerciseHistory(dl.id, database)).points
+    expect([p.maxLoadKg, p.repsAtMax]).toEqual([200, 5])
+    expect([p.volumeKg, p.volumeReps]).toEqual([1000, 5])
+    expect(p.e1rmSet).toEqual({ loadKg: 200, reps: 5 })
+  })
+
+  it('失敗セットしか無い Workout は最高負荷・推定 1RM が null で、点は残る', async () => {
+    const database = freshDb()
+    const dl = await createExercise({ name: 'Deadlift', muscles: [] }, database)
+    const w1 = await workoutAt(database, '2026-09-10', '10:00')
+    const s1 = await addExerciseSession(w1.id, dl.id, database)
+    await addSet(s1.id, { weightKg: 230, reps: 0, durationSec: null }, database)
+
+    const { points } = await loadExerciseHistory(dl.id, database)
+    expect(points).toHaveLength(1)
+    expect([points[0].maxLoadKg, points[0].e1rmKg, points[0].volumeKg]).toEqual([null, null, 0])
+  })
+
   it('秒だけの種目（プランク・通常種目扱い）は最高負荷 0、ボリューム・推定 1RM は null、合計時間は入る', async () => {
     const database = freshDb()
     const plank = await createExercise({ name: 'Plank', muscles: ['腹直筋'] }, database)

@@ -44,7 +44,7 @@ describe('SessionPage', () => {
     fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '5' } })
     fireEvent.click(screen.getByRole('button', { name: 'セット追加' }))
 
-    expect(await screen.findByRole('button', { name: /220 kg × 5/ })).toBeInTheDocument()
+    expect((await screen.findByText('220 kg × 5')).closest('button')).toBeInTheDocument()
     expect(await db.workoutSets.where('exerciseSessionId').equals(sessionId).count()).toBe(1)
     // 追加後も入力値は残り、次のセットを 1 タップで足せる
     expect(screen.getByLabelText('重量')).toHaveValue('220')
@@ -57,7 +57,7 @@ describe('SessionPage', () => {
     fireEvent.change(screen.getByLabelText('重量'), { target: { value: '0' } })
     fireEvent.change(screen.getByLabelText('秒'), { target: { value: '60' } })
     fireEvent.click(screen.getByRole('button', { name: 'セット追加' }))
-    expect(await screen.findByRole('button', { name: /60秒/ })).toBeInTheDocument()
+    expect((await screen.findByText('60秒')).closest('button')).toBeInTheDocument()
     expect(await db.workoutSets.toArray()).toMatchObject([{ weightKg: 0, reps: null, durationSec: 60 }])
   })
 
@@ -126,6 +126,48 @@ describe('SessionPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'セット追加' }))
     const row = (await screen.findByText('自重+10 kg × 8')).closest('button')
     expect(row).toHaveTextContent('80 kg')
+  })
+
+  it('メモ付きでセットを追加でき、追加後はメモ欄だけ空に戻る', async () => {
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Deadlift' })
+    fireEvent.change(screen.getByLabelText('重量'), { target: { value: '100' } })
+    fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '5' } })
+    fireEvent.change(screen.getByLabelText('セットのメモ'), { target: { value: ' フォーム崩れ ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'セット追加' }))
+    const row = (await screen.findByText('100 kg × 5')).closest('button')
+    expect(row).toHaveTextContent('フォーム崩れ')
+    expect(await db.workoutSets.toArray()).toMatchObject([{ memo: 'フォーム崩れ' }])
+    expect(screen.getByLabelText('セットのメモ')).toHaveValue('')
+    expect(screen.getByLabelText('重量')).toHaveValue('100')
+  })
+
+  it('Reps 0 は失敗として追加できる', async () => {
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Deadlift' })
+    fireEvent.change(screen.getByLabelText('重量'), { target: { value: '230' } })
+    fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: 'セット追加' }))
+    expect(await screen.findByText('230 kg × 0（失敗）')).toBeInTheDocument()
+    expect(await db.workoutSets.toArray()).toMatchObject([{ weightKg: 230, reps: 0 }])
+  })
+
+  it('追加直後はボタンが確認表示になって無効になり、二重タップしても 1 本しか入らず、その後元に戻る', async () => {
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Deadlift' })
+    fireEvent.change(screen.getByLabelText('重量'), { target: { value: '100' } })
+    fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '5' } })
+    const button = screen.getByRole('button', { name: 'セット追加' })
+    fireEvent.click(button)
+    fireEvent.click(button)
+    expect(await screen.findByRole('button', { name: '✓ 1 セット目を追加（100 kg × 5）' })).toBeDisabled()
+    fireEvent.click(button)
+    expect(await db.workoutSets.count()).toBe(1)
+    const row = (await screen.findByText('100 kg × 5')).closest('button')
+    expect(row?.className).toContain('ring-2')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'セット追加' })).toBeEnabled(), { timeout: 3000 })
+    expect(row?.className).not.toContain('ring-2')
+    expect(await db.workoutSets.count()).toBe(1)
   })
 
   it('数値入力欄は iOS のテンキーが出る属性を持つ', async () => {

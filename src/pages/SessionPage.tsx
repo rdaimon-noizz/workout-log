@@ -13,7 +13,11 @@ import { deleteExerciseSession, updateSessionMemo } from '../db/sessions'
 import { addSet, listSets } from '../db/sets'
 import type { WorkoutSet } from '../db/types'
 import { formatDateJa, formatLoad, formatSet, formatWeight, parseDecimal, parseOptionalInteger, weekdayJa } from '../lib/format'
+import { hapticTap } from '../lib/haptics'
 import { computeLoad, resolveBodyweightFor } from '../lib/load'
+
+/** 追加直後の確認表示（ボタン文言と行の強調）を出す時間。この間は追加ボタンを無効にして二重タップを防ぐ */
+const ADDED_FEEDBACK_MS = 1500
 
 /** セット入力画面（最重要画面）。入力欄と [セット追加] は画面下部に固定する */
 export default function SessionPage() {
@@ -43,7 +47,15 @@ export default function SessionPage() {
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
   const [duration, setDuration] = useState('')
+  const [memo, setMemo] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  // 追加直後のセット（確認表示と行の強調に使う）。ADDED_FEEDBACK_MS 後に消す
+  const [added, setAdded] = useState<WorkoutSet | null>(null)
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (addedTimer.current) clearTimeout(addedTimer.current)
+  }, [])
   const [editingSet, setEditingSet] = useState<WorkoutSet | null>(null)
   const [editingExercise, setEditingExercise] = useState(false)
   const [memoDraft, setMemoDraft] = useState<string | null>(null)
@@ -66,17 +78,25 @@ export default function SessionPage() {
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault()
+    if (saving || added) return
     const w = parseDecimal(weight)
-    const r = parseOptionalInteger(reps)
+    const r = parseOptionalInteger(reps, 0)
     const d = parseOptionalInteger(duration)
     if (w === null) return setError('重量を入力してください（自重なら 0）')
-    if (r === undefined) return setError('Reps は 1 以上の整数で入力してください')
+    if (r === undefined) return setError('Reps は 0 以上の整数で入力してください（0 = 失敗）')
     if (d === undefined) return setError('秒は 1 以上の整数で入力してください')
+    setSaving(true)
     try {
-      await addSet(sessionId, { weightKg: w, reps: r, durationSec: d })
+      const set = await addSet(sessionId, { weightKg: w, reps: r, durationSec: d, memo: memo.trim() })
       setError(null)
+      setMemo('')
+      hapticTap()
+      setAdded(set)
+      addedTimer.current = setTimeout(() => setAdded(null), ADDED_FEEDBACK_MS)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -158,7 +178,7 @@ export default function SessionPage() {
                   <button
                     type="button"
                     onClick={() => setEditingSet(s)}
-                    className={`${cardButton} flex w-full items-center gap-3 text-left`}
+                    className={`${cardButton} flex w-full items-center gap-3 text-left ${added?.id === s.id ? 'ring-2 ring-sky-400' : ''}`}
                   >
                     <span className="w-5 text-slate-500 tabular-nums">{s.setNumber}</span>
                     <span className="flex-1 text-xl font-semibold tabular-nums">{formatSet(s, { bodyweight: usesBodyweight })}</span>
@@ -227,8 +247,23 @@ export default function SessionPage() {
             <NumberField label="Reps" value={reps} onChange={setReps} mode="integer" />
             <NumberField label="秒" value={duration} onChange={setDuration} mode="integer" />
           </div>
-          <button type="submit" className={`${btnPrimary} h-14 w-full text-lg`}>
-            セット追加
+          <input
+            type="text"
+            aria-label="セットのメモ"
+            placeholder="メモ（任意）"
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            enterKeyHint="done"
+            autoComplete="off"
+            className={`${field} h-12 text-base`}
+          />
+          <button
+            type="submit"
+            disabled={saving || added !== null}
+            aria-live="polite"
+            className={`${btnPrimary} h-14 w-full text-lg disabled:opacity-100 ${added ? 'bg-emerald-500' : ''}`}
+          >
+            {added ? `✓ ${added.setNumber} セット目を追加（${formatSet(added, { bodyweight: usesBodyweight })}）` : 'セット追加'}
           </button>
         </div>
       </form>

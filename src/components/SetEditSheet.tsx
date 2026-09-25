@@ -24,10 +24,10 @@ export function SetEditSheet({ set, bodyweight = false, onClose }: Props) {
   async function handleSave(e: FormEvent) {
     e.preventDefault()
     const w = parseDecimal(weight)
-    const r = parseOptionalInteger(reps)
+    const r = parseOptionalInteger(reps, 0)
     const d = parseOptionalInteger(duration)
     if (w === null) return setError('重量は 0 以上の数値で入力してください')
-    if (r === undefined) return setError('Reps は 1 以上の整数で入力してください')
+    if (r === undefined) return setError('Reps は 0 以上の整数で入力してください（0 = 失敗）')
     if (d === undefined) return setError('秒は 1 以上の整数で入力してください')
     try {
       await updateSet(set.id, { weightKg: w, reps: r, durationSec: d, memo })

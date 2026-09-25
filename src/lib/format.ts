@@ -48,6 +48,11 @@ export interface SetLike {
   durationSec: number | null
 }
 
+/** Reps 0 = 1 回も挙げられなかった（リフト失敗）セット */
+export function isFailedSet(s: Pick<SetLike, 'reps'>): boolean {
+  return s.reps === 0
+}
+
 export interface SetFormatOptions {
   /** 自重種目なら weightKg を加重として「自重+10 kg」の形で出す */
   bodyweight?: boolean
@@ -67,14 +72,18 @@ function weightPart(s: SetLike, opts?: SetFormatOptions, compact = false): strin
 /**
  * セット 1 本の表示。例: 220 kg × 5 ／ 200 kg × 3（2秒）／ 60秒 ／ 20 kg 60秒 ／ 自重+10 kg × 8 ／ 自重 × 8
  * 重量 0 で reps も無いセット（プランク等）は重量を出さない。
+ * reps 0（失敗）は 100 kg × 0（失敗）／ 100 kg × 0（失敗・2秒）。
  */
 export function formatSet(s: SetLike, opts?: SetFormatOptions): string {
   let out = weightPart(s, opts)
   if (s.reps !== null) out += ` × ${s.reps}`
+  const notes: string[] = []
+  if (isFailedSet(s)) notes.push('失敗')
   if (s.durationSec !== null) {
-    if (s.reps !== null) out += `（${s.durationSec}秒）`
+    if (s.reps !== null) notes.push(`${s.durationSec}秒`)
     else out += out ? ` ${s.durationSec}秒` : `${s.durationSec}秒`
   }
+  if (notes.length > 0) out += `（${notes.join('・')}）`
   return out
 }
 
@@ -82,10 +91,13 @@ export function formatSet(s: SetLike, opts?: SetFormatOptions): string {
 export function formatSetCompact(s: SetLike, opts?: SetFormatOptions): string {
   let out = weightPart(s, opts, true)
   if (s.reps !== null) out += `×${s.reps}`
+  const notes: string[] = []
+  if (isFailedSet(s)) notes.push('失敗')
   if (s.durationSec !== null) {
-    if (s.reps !== null) out += `(${s.durationSec}秒)`
+    if (s.reps !== null) notes.push(`${s.durationSec}秒`)
     else out += out ? `×${s.durationSec}秒` : `${s.durationSec}秒`
   }
+  if (notes.length > 0) out += `(${notes.join('・')})`
   return out
 }
 
@@ -95,12 +107,13 @@ export function formatSetsCompact(sets: ReadonlyArray<SetLike>, opts?: SetFormat
 }
 
 /**
- * 任意の整数欄の解釈。空文字は null（未入力）、正の整数はその値、それ以外は undefined（不正）。
+ * 任意の整数欄の解釈。空文字は null（未入力）、min 以上の整数はその値、それ以外は undefined（不正）。
+ * min の既定は 1（秒）。Reps は 0 を「失敗」として受けるので min 0 で呼ぶ。
  */
-export function parseOptionalInteger(input: string): number | null | undefined {
+export function parseOptionalInteger(input: string, min = 1): number | null | undefined {
   if (input.trim() === '') return null
   const n = parseInteger(input)
-  return n === null || n < 1 ? undefined : n
+  return n === null || n < min ? undefined : n
 }
 
 /** 負荷の表示。体重が解決できず計算できないときは「負荷 不明」 */

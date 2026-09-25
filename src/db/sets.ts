@@ -15,8 +15,9 @@ export function validateSetInput(input: Pick<SetInput, 'weightKg' | 'reps' | 'du
   if (!Number.isFinite(input.weightKg) || input.weightKg < 0) {
     throw new Error('重量は 0 以上の数値で入力してください')
   }
-  if (input.reps !== null && (!Number.isInteger(input.reps) || input.reps < 1)) {
-    throw new Error('Reps は 1 以上の整数で入力してください')
+  // 0 は「1 回も挙げられなかった（失敗）」として許可する（v8）
+  if (input.reps !== null && (!Number.isInteger(input.reps) || input.reps < 0)) {
+    throw new Error('Reps は 0 以上の整数で入力してください（0 = 失敗）')
   }
   if (input.durationSec !== null && (!Number.isInteger(input.durationSec) || input.durationSec < 1)) {
     throw new Error('秒は 1 以上の整数で入力してください')

@@ -2,6 +2,7 @@ import { db, type WorkoutLogDB } from './db'
 import type { Exercise, ExerciseSession, Workout, WorkoutSet } from './types'
 import { computeLoad, resolveBodyweight, type ResolvedBodyweight } from '../lib/load'
 import { estimateOneRepMax } from '../lib/metrics'
+import { isFailedSet } from '../lib/format'
 import { compareWorkoutsDesc, isBeforeWorkout } from '../lib/workoutOrder'
 
 export { compareWorkoutsDesc, isBeforeWorkout }
@@ -201,13 +202,16 @@ export function buildPoint(
     .map((set) => ({ set, load: computeLoad(set.weightKg, usesBodyweight, bodyweight.kg) }))
     .filter((x): x is { set: WorkoutSet; load: number } => x.load !== null)
 
+  // 失敗セット（reps 0）は挙がっていないので、最高負荷と推定 1RM には入れない（v8）
+  const lifted = loaded.filter((x) => !isFailedSet(x.set))
+
   // 最高負荷
   let maxLoadKg: number | null = null
   let repsAtMax: number | null = null
   let durationAtMax: number | null = null
-  if (loaded.length > 0) {
-    maxLoadKg = Math.max(...loaded.map((x) => x.load))
-    const top = loaded.filter((x) => x.load === maxLoadKg).map((x) => x.set)
+  if (lifted.length > 0) {
+    maxLoadKg = Math.max(...lifted.map((x) => x.load))
+    const top = lifted.filter((x) => x.load === maxLoadKg).map((x) => x.set)
     const reps = top.map((t) => t.reps).filter((r): r is number => r !== null)
     const durations = top.map((t) => t.durationSec).filter((d): d is number => d !== null)
     repsAtMax = reps.length > 0 ? Math.max(...reps) : null
@@ -221,6 +225,7 @@ export function buildPoint(
   let e1rmKg: number | null = null
   let e1rmSet: HistoryPoint['e1rmSet'] = null
   for (const x of repSets) {
+    if (isFailedSet(x.set)) continue
     const est = estimateOneRepMax(x.load, x.set.reps)
     if (e1rmKg === null || est > e1rmKg) {
       e1rmKg = est
