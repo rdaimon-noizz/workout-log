@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { AppShell } from '../components/AppShell'
 import { NumberField } from '../components/NumberField'
@@ -76,8 +76,8 @@ export default function SessionPage() {
     prefilled.current = true
   }, [loadedSets, previous, exercise])
 
-  async function handleAdd(e?: { preventDefault(): void }) {
-    e?.preventDefault()
+  async function handleAdd(e: FormEvent) {
+    e.preventDefault()
     if (saving || added) return
     const w = parseDecimal(weight)
     const r = parseOptionalInteger(reps, 0)
@@ -85,7 +85,6 @@ export default function SessionPage() {
     if (w === null) return setError('重量を入力してください（自重なら 0）')
     if (r === undefined) return setError('Reps は 0 以上の整数で入力してください（0 = 失敗）')
     if (d === undefined) return setError('秒は 1 以上の整数で入力してください')
-    // 振動はタップと同じ同期処理の中で鳴らす（iOS はユーザー操作の延長でしか触覚を出さないため、保存の await より前に置く）
     hapticTap()
     setSaving(true)
     try {
@@ -259,26 +258,18 @@ export default function SessionPage() {
             className={`${field} h-12 text-base`}
           />
           {/*
-            追加ボタンは iOS のスイッチ型チェックボックス（<input type="checkbox" switch>）を透明にして重ねる。
-            指のタップがスイッチを直接切り替えると iOS 17.4 以降は触覚が出る（プログラムからの click では出ないことを実機で確認済み）。
-            役割は button として読み上げ、値は常に未チェックに戻す。Enter での送信は form の onSubmit が受ける。
+            iOS のホーム画面アプリでは Web から振動を出せない（2026-09-25 に navigator.vibrate 相当・スイッチ型
+            チェックボックスのプログラム切替・実タップ切替の 3 通りを実機で試し、いずれも出なかった）。
+            手応えは視覚（文言の切替・緑・行の強調）と 1.5 秒の無効化で出す。
           */}
-          <div
+          <button
+            type="submit"
+            disabled={saving || added !== null}
             aria-live="polite"
-            className={`${btnPrimary} relative h-14 w-full text-lg ${added ? 'bg-emerald-500' : ''}`}
+            className={`${btnPrimary} h-14 w-full text-lg disabled:opacity-100 ${added ? 'bg-emerald-500' : ''}`}
           >
-            <span>{added ? `✓ ${added.setNumber} セット目を追加（${formatSet(added, { bodyweight: usesBodyweight })}）` : 'セット追加'}</span>
-            <input
-              type="checkbox"
-              role="button"
-              aria-label={added ? `✓ ${added.setNumber} セット目を追加（${formatSet(added, { bodyweight: usesBodyweight })}）` : 'セット追加'}
-              checked={false}
-              disabled={saving || added !== null}
-              onChange={() => void handleAdd()}
-              className="absolute inset-0 m-0 h-full w-full cursor-pointer opacity-0"
-              {...({ switch: '' } as Record<string, string>)}
-            />
-          </div>
+            {added ? `✓ ${added.setNumber} セット目を追加（${formatSet(added, { bodyweight: usesBodyweight })}）` : 'セット追加'}
+          </button>
         </div>
       </form>
 
