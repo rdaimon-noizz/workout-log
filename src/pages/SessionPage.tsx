@@ -85,12 +85,13 @@ export default function SessionPage() {
     if (w === null) return setError('重量を入力してください（自重なら 0）')
     if (r === undefined) return setError('Reps は 0 以上の整数で入力してください（0 = 失敗）')
     if (d === undefined) return setError('秒は 1 以上の整数で入力してください')
+    // 振動はタップと同じ同期処理の中で鳴らす（iOS はユーザー操作の延長でしか触覚を出さないため、保存の await より前に置く）
+    hapticTap()
     setSaving(true)
     try {
       const set = await addSet(sessionId, { weightKg: w, reps: r, durationSec: d, memo: memo.trim() })
       setError(null)
       setMemo('')
-      hapticTap()
       setAdded(set)
       addedTimer.current = setTimeout(() => setAdded(null), ADDED_FEEDBACK_MS)
     } catch (err) {
